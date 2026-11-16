@@ -149,3 +149,4 @@ Answer from memory before looking back.
 
 - App: [Token usage tracker](../../apps/token-usage-tracker/) — tracks input and output tokens per user, locally and in Langfuse
 - [LLM architecture basics](architecture-basics.md) — where tokenization sits in the full pipeline (step 2) and why generation is one token at a time (step 10)
+- [Temperature and output generation parameters](temperature-and-sampling-parameters.md) — max output tokens, and how the next token is chosen

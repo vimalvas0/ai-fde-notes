@@ -71,4 +71,5 @@ Prompt: `The cat sat` — and the model is asked to continue.
 ## See also
 
 - [Tokens, tokenization and the context window](tokens-and-context-window.md) — step 2 in depth, plus the cost and context math
+- [Temperature and output generation parameters](temperature-and-sampling-parameters.md) — how step 10 picks a token from the step 8 probabilities
 - Diagram: [architecture-basics.webp](../../diagrams/fundamentals/architecture-basics.webp)

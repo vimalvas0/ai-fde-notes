@@ -10,6 +10,7 @@ Notes, small apps and diagrams for learning and revising how LLMs work and how t
 | --- | --- |
 | [LLM architecture basics](notes/fundamentals/architecture-basics.md) | How an LLM works in ten steps, from training data to generated tokens |
 | [Tokens, tokenization and the context window](notes/fundamentals/tokens-and-context-window.md) | What tokens are, the math for size, cost and latency, and best practices for keeping token use down |
+| [Temperature and output generation parameters](notes/fundamentals/temperature-and-sampling-parameters.md) | How the next token is picked: temperature, top-k, top-p, max tokens, stop sequences and penalties, with the softmax math |
 
 ### Prompting
 
