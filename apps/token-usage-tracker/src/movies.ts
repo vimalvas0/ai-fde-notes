@@ -47,7 +47,10 @@ function printTotals(): void {
   console.log(`${user} so far:  ${totals.inputTokens} input + ${totals.outputTokens} output = ${totals.totalTokens} tokens over ${totals.requests} request(s)`);
 }
 
-async function lookup(): Promise<void> {
+/** The root Langfuse observation; absent when Langfuse is off. */
+type RootSpan = { update: (attrs: { output?: unknown; metadata?: Record<string, unknown> }) => unknown };
+
+async function lookup(span?: RootSpan): Promise<void> {
   // Same series asked before (by anyone)? Reuse the stored answer instead of paying again.
   const key = cacheKey(model, SYSTEM_PROMPT, movieName);
   const hit = getCached(key);
@@ -65,6 +68,8 @@ async function lookup(): Promise<void> {
       traceId: langfuseEnabled ? getActiveTraceId() : undefined,
       fromCache: true,
     });
+    // A hit makes no OpenAI call, so there is no generation under the root. Mark the root itself.
+    span?.update({ output: hit.answer, metadata: { cacheHit: true, firstAskedBy: hit.askedBy } });
     console.log(hit.answer);
     console.log();
     console.log(`Cache hit (first asked by ${hit.askedBy}): 0 tokens, no API call.`);
@@ -106,6 +111,7 @@ async function lookup(): Promise<void> {
   } catch {
     // Not valid JSON: show it, but do not cache a bad answer.
   }
+  span?.update({ output: answer, metadata: { cacheHit: false } });
   console.log(answer);
   console.log();
   console.log(`This request: ${usage.prompt_tokens} input + ${usage.completion_tokens} output = ${usage.total_tokens} tokens`);
@@ -117,7 +123,7 @@ try {
     await propagateAttributes({ userId: user, traceName: "movies" }, () =>
       startActiveObservation("movies", async (span) => {
         span.update({ input: movieName });
-        await lookup();
+        await lookup(span);
       }),
     );
     console.log("Sent to Langfuse.");

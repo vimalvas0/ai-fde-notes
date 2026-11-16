@@ -57,6 +57,8 @@ The title is limited to 60 characters (`MAX_NAME_LENGTH` in [src/movies.ts](src/
 Cache hit (first asked by alice): 0 tokens, no API call.
 ```
 
+In Langfuse, a hit has no OpenAI generation under it, so the root `movies` observation carries the signal instead: its output is the cached answer and its metadata has `cacheHit: true` (and `firstAskedBy`). Misses have `cacheHit: false`.
+
 This is a response cache of our own, not OpenAI's prompt caching. OpenAI's version only reuses an identical *prefix* of at least 1024 tokens; here the prefix is a short system prompt and the title comes last, so it would never trigger. To ask again for a fresh answer, delete the series' entry from `data/movie-cache.json`.
 
 Check what a user has spent:
