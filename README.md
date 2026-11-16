@@ -1,6 +1,6 @@
 # ai-fde-notes
 
-Notes, small demos and diagrams for learning and revising how LLMs work and how to build with them. Each note is short, covers one concept, and ends with questions to test yourself.
+Notes, small apps and diagrams for learning and revising how LLMs work and how to build with them. Each note is short, covers one concept, and ends with questions to test yourself.
 
 ## Notes
 
@@ -17,6 +17,8 @@ Notes, small demos and diagrams for learning and revising how LLMs work and how 
 | --- | --- |
 | [How an LLM works in 10 steps](diagrams/fundamentals/architecture-basics.webp) | [LLM architecture basics](notes/fundamentals/architecture-basics.md) |
 
-## Demos
+## Apps
 
-None yet.
+| App | What it shows |
+| --- | --- |
+| [Token usage tracker](apps/token-usage-tracker/) | Tracking input and output tokens per user, stored locally and sent to Langfuse (TypeScript) |

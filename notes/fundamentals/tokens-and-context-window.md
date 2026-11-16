@@ -103,4 +103,5 @@ Output is generated one token at a time, so a long answer is slow no matter how 
 
 ## See also
 
+- App: [Token usage tracker](../../apps/token-usage-tracker/) — tracks input and output tokens per user, locally and in Langfuse
 - [LLM architecture basics](architecture-basics.md) — where tokenization sits in the full pipeline (step 2) and why generation is one token at a time (step 10)

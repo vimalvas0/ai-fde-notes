@@ -18,6 +18,6 @@ Questions to answer from memory when coming back to this note.
 
 ## See also
 
-- Demo: 
+- App: 
 - Diagram: 
 - Sources: 
