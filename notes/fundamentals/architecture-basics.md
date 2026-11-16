@@ -70,6 +70,5 @@ Prompt: `The cat sat` — and the model is asked to continue.
 
 ## See also
 
-- Demo: 
+- [Tokens, tokenization and the context window](tokens-and-context-window.md) — step 2 in depth, plus the cost and context math
 - Diagram: [architecture-basics.webp](../../diagrams/fundamentals/architecture-basics.webp)
-- Sources: 
