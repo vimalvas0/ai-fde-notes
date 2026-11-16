@@ -28,4 +28,5 @@ Notes, small apps and diagrams for learning and revising how LLMs work and how t
 
 | App | What it shows |
 | --- | --- |
+| [LiteLLM gateway](apps/README.md) | One local address that routes requests to OpenAI or Anthropic models by name, run with Docker Compose |
 | [Token usage tracker](apps/token-usage-tracker/) | Tracking input and output tokens per user, stored locally and sent to Langfuse; also a system-prompt demo that returns short JSON about a TV series (TypeScript) |
