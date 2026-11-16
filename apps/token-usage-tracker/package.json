@@ -10,6 +10,7 @@
   "scripts": {
     "ask": "node --env-file-if-exists=.env src/ask.ts",
     "movies": "node --env-file-if-exists=.env src/movies.ts",
+    "cost": "node --env-file-if-exists=.env src/cost.ts",
     "usage": "node --env-file-if-exists=.env src/usage.ts",
     "typecheck": "tsc --noEmit"
   },

@@ -7,6 +7,7 @@ import { observeOpenAI } from "@langfuse/openai";
 import { getActiveTraceId, propagateAttributes, startActiveObservation } from "@langfuse/tracing";
 import OpenAI from "openai";
 
+import { cacheKey, getCached, setCached } from "./cache.ts";
 import { langfuseEnabled, startLangfuse, stopLangfuse } from "./langfuse.ts";
 import { getUsage, recordUsage, sumUsage } from "./store.ts";
 
@@ -41,7 +42,36 @@ const model = process.env.OPENAI_MODEL ?? "gpt-5-mini";
 startLangfuse();
 const openai = langfuseEnabled ? observeOpenAI(new OpenAI()) : new OpenAI();
 
+function printTotals(): void {
+  const totals = sumUsage(getUsage(user));
+  console.log(`${user} so far:  ${totals.inputTokens} input + ${totals.outputTokens} output = ${totals.totalTokens} tokens over ${totals.requests} request(s)`);
+}
+
 async function lookup(): Promise<void> {
+  // Same series asked before (by anyone)? Reuse the stored answer instead of paying again.
+  const key = cacheKey(model, SYSTEM_PROMPT, movieName);
+  const hit = getCached(key);
+  if (hit) {
+    recordUsage({
+      timestamp: new Date().toISOString(),
+      user,
+      model,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      cachedInputTokens: 0,
+      reasoningTokens: 0,
+      requestId: "cache",
+      traceId: langfuseEnabled ? getActiveTraceId() : undefined,
+      fromCache: true,
+    });
+    console.log(hit.answer);
+    console.log();
+    console.log(`Cache hit (first asked by ${hit.askedBy}): 0 tokens, no API call.`);
+    printTotals();
+    return;
+  }
+
   const completion = await openai.chat.completions.create({
     model,
     messages: [
@@ -69,16 +99,17 @@ async function lookup(): Promise<void> {
   });
 
   const content = completion.choices[0]?.message.content ?? "";
+  let answer = content || "(no text in response)";
   try {
-    console.log(JSON.stringify(JSON.parse(content)));
+    answer = JSON.stringify(JSON.parse(content));
+    setCached(key, { answer, cachedAt: new Date().toISOString(), askedBy: user });
   } catch {
-    console.log(content || "(no text in response)");
+    // Not valid JSON: show it, but do not cache a bad answer.
   }
+  console.log(answer);
   console.log();
   console.log(`This request: ${usage.prompt_tokens} input + ${usage.completion_tokens} output = ${usage.total_tokens} tokens`);
-
-  const totals = sumUsage(getUsage(user));
-  console.log(`${user} so far:  ${totals.inputTokens} input + ${totals.outputTokens} output = ${totals.totalTokens} tokens over ${totals.requests} request(s)`);
+  printTotals();
 }
 
 try {

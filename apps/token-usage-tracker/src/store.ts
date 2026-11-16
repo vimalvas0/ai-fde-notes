@@ -21,6 +21,8 @@ export interface UsageRecord {
   requestId: string;
   /** Langfuse trace id, when Langfuse is configured. */
   traceId?: string;
+  /** True when the answer came from our own response cache, so no tokens were spent. */
+  fromCache?: boolean;
 }
 
 export interface UsageTotals {

@@ -51,6 +51,26 @@ This request: 110 input + 40 output = 150 tokens
 
 The title is limited to 60 characters (`MAX_NAME_LENGTH` in [src/movies.ts](src/movies.ts)); longer input is rejected before any API call. Usage is tracked the same way as `ask`, under the Langfuse trace name `movies`.
 
+**Caching.** The first time anyone asks for a series, the answer is stored in `data/movie-cache.json`. When another user asks for the same one (case and extra spaces ignored), the stored answer is returned with no API call, and a 0-token request is recorded for that user:
+
+```
+Cache hit (first asked by alice): 0 tokens, no API call.
+```
+
+This is a response cache of our own, not OpenAI's prompt caching. OpenAI's version only reuses an identical *prefix* of at least 1024 tokens; here the prefix is a short system prompt and the title comes last, so it would never trigger. To ask again for a fresh answer, delete the series' entry from `data/movie-cache.json`.
+
+Check what a user has spent:
+
+```bash
+npm run cost alice
+```
+
+```
+alice: $0.000412 over 3 request(s), 1 answered from cache (free)
+```
+
+`npm run cost` alone lists every user, and `-- --json` gives machine-readable output. Cost is worked out from the stored token counts and the price list in [src/pricing.ts](src/pricing.ts), counting cached input at its lower rate. The prices are typed in by hand, so check them against OpenAI's pricing page; models missing from the list are reported as not counted.
+
 Check the stored usage:
 
 ```bash
@@ -114,4 +134,5 @@ Each stored record also keeps the Langfuse `traceId`, so a line in the local fil
 ## Limits
 
 - The local store is a plain file, which is fine for a demo but not for concurrent writers. A real app would use a database.
-- Only tokens are stored locally, not cost. Langfuse works out cost from its own model price list.
+- Cost is not stored: `npm run cost` calculates it from `src/pricing.ts`, while Langfuse uses its own model price list, so the two can differ slightly.
+- The response cache never expires and is keyed by model and system prompt, so changing either starts a fresh cache.
