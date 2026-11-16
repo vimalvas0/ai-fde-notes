@@ -11,6 +11,12 @@ Notes, small apps and diagrams for learning and revising how LLMs work and how t
 | [LLM architecture basics](notes/fundamentals/architecture-basics.md) | How an LLM works in ten steps, from training data to generated tokens |
 | [Tokens, tokenization and the context window](notes/fundamentals/tokens-and-context-window.md) | What tokens are, the math for size, cost and latency, and best practices for keeping token use down |
 
+### Prompting
+
+| Note | What it covers |
+| --- | --- |
+| [System, user and assistant roles](notes/prompting/system-user-assistant-roles.md) | What each message role is for, the instruction hierarchy, and how roles carry a stateless conversation |
+
 ## Diagrams
 
 | Diagram | Used in |
@@ -21,4 +27,4 @@ Notes, small apps and diagrams for learning and revising how LLMs work and how t
 
 | App | What it shows |
 | --- | --- |
-| [Token usage tracker](apps/token-usage-tracker/) | Tracking input and output tokens per user, stored locally and sent to Langfuse (TypeScript) |
+| [Token usage tracker](apps/token-usage-tracker/) | Tracking input and output tokens per user, stored locally and sent to Langfuse; also a system-prompt demo that returns short JSON about a TV series (TypeScript) |

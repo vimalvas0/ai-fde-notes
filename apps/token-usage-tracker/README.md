@@ -37,6 +37,20 @@ alice so far:  12 input + 30 output = 42 tokens over 1 request(s)
 Sent to Langfuse.
 ```
 
+Look up a TV series. A **system prompt** fixes the task and forces a very short JSON reply, so you only pass the title (see [System, user and assistant roles](../../notes/prompting/system-user-assistant-roles.md)):
+
+```bash
+npm run movies alice "Breaking Bad"
+```
+
+```
+{"title":"Breaking Bad","year":2008,"genre":"Crime drama","seasons":5,"creator":"Vince Gilligan"}
+
+This request: 110 input + 40 output = 150 tokens
+```
+
+The title is limited to 60 characters (`MAX_NAME_LENGTH` in [src/movies.ts](src/movies.ts)); longer input is rejected before any API call. Usage is tracked the same way as `ask`, under the Langfuse trace name `movies`.
+
 Check the stored usage:
 
 ```bash
