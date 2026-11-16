@@ -85,6 +85,47 @@ Starting points by task (adjust by testing, not as rules):
 | Chat, drafting, summaries | 0.5 – 1 | Natural phrasing |
 | Brainstorming, names, story ideas | 1 or a little above, if the provider allows | Variety is the point |
 
+## Where you can control it
+
+### When you build an app and call the model yourself
+
+You control it. These settings are fields on each request, so you can set them for each feature, not just once for the whole app.
+
+| Feature | Setting | Why |
+| --- | --- | --- |
+| Pulling fields out of text, sorting into categories, arguments for tool calls | Temperature 0 to 0.2, plus a fixed output format | You want the same answer every time |
+| Answering from documents, writing code | Low temperature | Wording can vary, facts should not |
+| Chat, drafting, rewriting | About 0.5 to 1 | Natural phrasing |
+| Brainstorming, names, several draft options | 1 or higher, or ask for several answers | Variety is the point |
+| Using a model to grade other answers | Low temperature | Scores should not jump between runs |
+| Every feature | A cap on output length | Output is the slow, costly part, so a cap limits the worst case |
+
+- **Give each feature its own settings.** A strict extraction call and a loose chat call should not share one temperature.
+- **Keep the settings in one place and log them with every request.** Otherwise you cannot explain why Tuesday's answer differed from Monday's.
+- **Test with a fixed set of prompts.** Temperature 0 is very repeatable but not guaranteed identical, so check behaviour across many prompts instead of matching exact text.
+- **Some models limit these settings.** Models that think before answering often fix the temperature or reject some of them. Check the docs for the model you use.
+
+### When you use a coding assistant (Claude Code and similar)
+
+You mostly cannot control it. The tool builds the request for you, and these tools do not usually offer a temperature setting. Check the current docs if it matters to you. What you can change instead:
+
+- **The model.** A different model is steadier or more inventive.
+- **How much it thinks first.** Many tools have an effort or thinking level. It changes quality and cost more than temperature would.
+- **Your prompt.** A clear, narrow request with an example gives more consistent answers than any setting.
+- **Checks outside the model.** Tests and linters catch the variation that randomness lets through.
+
+This is why the same request can give a different result on two runs. Running it again is not a sign of a bug.
+
+### Which fix for which problem
+
+| What you see | Try first |
+| --- | --- |
+| Answers differ from run to run | Lower the temperature, then tighten the prompt, then fix the output format |
+| Answers are repetitive or flat | Raise the temperature a little, or add examples to the prompt |
+| Answers are wrong or invented | Not a randomness problem. Give it better source text, or add checks |
+| Answer stops mid-sentence | Raise the output length cap, and check why it stopped |
+| Broken JSON | Use the provider's fixed-format option, not temperature |
+
 ## Gotchas
 
 - **Temperature 0 is not guaranteed identical output.** Floating-point rounding, GPU batching and provider-side changes can still flip a close call between two tokens, and after that the rest of the text diverges. Treat it as "very repeatable", and test with a fixed set of prompts rather than relying on it.
