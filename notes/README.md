@@ -6,10 +6,9 @@ One concept per file, at `notes/<topic>/<slug>.md`. Start from [the note templat
 
 Add a line here for each note as you write it.
 
-<!-- Example:
 ### Fundamentals
-- [Tokenization](fundamentals/tokenization.md) — how text becomes token ids, and why it matters for cost
--->
+
+- [LLM architecture basics](fundamentals/architecture-basics.md) — the ten steps from training data to generated tokens
 
 ## Topic map
 

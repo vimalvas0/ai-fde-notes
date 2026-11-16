@@ -11,6 +11,12 @@ Personal notes, small demos and diagrams for learning and revising how LLMs work
 | [diagrams/](diagrams/) | Excalidraw sources (`.excalidraw`) and their exported `.svg`/`.png` |
 | [templates/](templates/) | Starting points for a new note, demo or diagram |
 
+## Start here
+
+- [LLM architecture basics](notes/fundamentals/architecture-basics.md) — how an LLM works in ten steps, from training data to generated tokens
+
+The full list of notes is in [notes/README.md](notes/README.md).
+
 ## Adding things
 
 **A note** — copy [templates/note.md](templates/note.md) to `notes/<topic>/<slug>.md` and add a line for it in [notes/README.md](notes/README.md).
