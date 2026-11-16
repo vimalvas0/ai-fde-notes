@@ -1,0 +1,4 @@
+* text=auto eol=lf
+*.excalidraw text linguist-language=JSON
+*.png binary
+*.jpg binary
