@@ -1,10 +1,12 @@
 // The routing pipeline. A prompt goes through a list of stages, each of which
 // reads and adds to a shared Context:
 //
-//   rules ──► classify ──► answer
-//   free      cheap model   chosen model (with fallback)
+//   classify ──► answer
+//   small, fast   chosen model (with fallback)
+//   model judges
+//   the prompt
 //
-// A stage is skipped when an earlier one already settled its question. Every
+// A stage is skipped when it does not apply (the answer stage on a dry run). Every
 // stage that runs becomes a span in Langfuse, so one trace shows the whole route.
 // All model calls go through the LiteLLM gateway, so a model is just a name.
 
@@ -20,7 +22,6 @@ export type Context = {
   /** Decide the route but do not call the answering model. */
   dryRun: boolean;
   complexity?: Complexity;
-  decidedBy?: "rules" | "classifier";
   reason?: string;
   model?: string;
   /** Models that failed before one worked. */
@@ -46,31 +47,10 @@ const client = langfuseEnabled ? observeOpenAI(baseClient) : baseClient;
 // Cap on answer length. Keeps cost bounded; raise it if answers get cut off.
 const MAX_ANSWER_TOKENS = 2000;
 
-// ---- Stage 1: rules ---------------------------------------------------------
-// Cheap checks on the text itself. No model call, so no cost and no delay.
-
-const COMPLEX_HINTS = /```|\b(code|function|debug|refactor|architecture|prove|derive|analy[sz]e|compare|step[- ]by[- ]step|trade-?offs?)\b/i;
-const SHORT_WORDS = 12;
-const LONG_WORDS = 200;
-
-const rulesStage: Stage = {
-  name: "rules",
-  applies: () => true,
-  async run(ctx) {
-    const words = ctx.prompt.trim().split(/\s+/).length;
-    if (COMPLEX_HINTS.test(ctx.prompt)) {
-      settle(ctx, "complex", "rules", "mentions code or analysis");
-    } else if (words > LONG_WORDS) {
-      settle(ctx, "complex", "rules", `long prompt (${words} words)`);
-    } else if (words <= SHORT_WORDS) {
-      settle(ctx, "simple", "rules", `short prompt (${words} words), no analysis words`);
-    }
-    // Otherwise leave it open for the classifier.
-  },
-};
-
-// ---- Stage 2: classify ------------------------------------------------------
-// Only for prompts the rules could not decide. A small model answers one word.
+// ---- Stage 1: classify ------------------------------------------------------
+// A small, fast model reads the prompt and answers one word. This replaces
+// hand-written word and length checks, which misjudge prompts that are short but
+// hard, or long but easy. It costs one tiny call per prompt.
 
 const CLASSIFIER_PROMPT =
   "You sort questions by how hard they are to answer well. " +
@@ -79,7 +59,7 @@ const CLASSIFIER_PROMPT =
 
 const classifyStage: Stage = {
   name: "classify",
-  applies: (ctx) => ctx.complexity === undefined,
+  applies: () => true,
   async run(ctx) {
     try {
       const completion = await client.chat.completions.create({
@@ -91,16 +71,16 @@ const classifyStage: Stage = {
         ],
       });
       const verdict = completion.choices[0]?.message.content?.trim().toLowerCase() ?? "";
-      if (verdict.startsWith("simple")) settle(ctx, "simple", "classifier", `${CLASSIFIER_MODEL} said simple`);
-      else settle(ctx, "complex", "classifier", `${CLASSIFIER_MODEL} said ${verdict || "nothing"}, treated as complex`);
+      if (verdict.startsWith("simple")) settle(ctx, "simple", `${CLASSIFIER_MODEL} said simple`);
+      else settle(ctx, "complex", `${CLASSIFIER_MODEL} said ${verdict || "nothing"}, treated as complex`);
     } catch (error) {
       // If we cannot tell, take the safe side: the stronger model.
-      settle(ctx, "complex", "classifier", `classifier failed (${messageOf(error)}), treated as complex`);
+      settle(ctx, "complex", `classifier failed (${messageOf(error)}), treated as complex`);
     }
   },
 };
 
-// ---- Stage 3: answer --------------------------------------------------------
+// ---- Stage 2: answer --------------------------------------------------------
 // Call the chosen tier's models in order until one works.
 
 const answerStage: Stage = {
@@ -128,7 +108,7 @@ const answerStage: Stage = {
   },
 };
 
-const STAGES: Stage[] = [rulesStage, classifyStage, answerStage];
+const STAGES: Stage[] = [classifyStage, answerStage];
 
 // ---- Running it -------------------------------------------------------------
 
@@ -144,7 +124,7 @@ export async function routePrompt(prompt: string, options: { dryRun?: boolean } 
     }
     root?.update({
       output: ctx.answer ?? "(dry run: no answer requested)",
-      metadata: { complexity: ctx.complexity, decidedBy: ctx.decidedBy, reason: ctx.reason, model: ctx.model, failedModels: ctx.failedModels },
+      metadata: { complexity: ctx.complexity, reason: ctx.reason, model: ctx.model, failedModels: ctx.failedModels },
     });
   };
 
@@ -167,14 +147,13 @@ async function traced(name: string, work: () => Promise<void>, describe: () => R
   });
 }
 
-function settle(ctx: Context, complexity: Complexity, decidedBy: "rules" | "classifier", reason: string): void {
+function settle(ctx: Context, complexity: Complexity, reason: string): void {
   ctx.complexity = complexity;
-  ctx.decidedBy = decidedBy;
   ctx.reason = reason;
 }
 
 function summary(ctx: Context): Record<string, unknown> {
-  return { complexity: ctx.complexity, decidedBy: ctx.decidedBy, reason: ctx.reason, model: ctx.model };
+  return { complexity: ctx.complexity, reason: ctx.reason, model: ctx.model };
 }
 
 function messageOf(error: unknown): string {

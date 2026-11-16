@@ -1,6 +1,6 @@
 // npm run demo
 // Routes a few sample prompts without answering them, so you can see how each
-// one is sorted. Cheap: only prompts the rules cannot decide call a (small) model.
+// one is sorted. Cheap: each prompt makes one tiny call to the small classifier model.
 
 import { startLangfuse, stopLangfuse } from "./langfuse.ts";
 import { routePrompt } from "./pipeline.ts";
@@ -25,7 +25,7 @@ try {
     const ctx = await routePrompt(prompt, { dryRun: true });
     const target = ROUTES[ctx.complexity ?? "complex"][0];
     console.log(prompt);
-    console.log(`  → ${ctx.complexity} → ${target}   (${ctx.decidedBy}: ${ctx.reason})`);
+    console.log(`  → ${ctx.complexity} → ${target}   (${ctx.reason})`);
     console.log();
   }
 } catch (error) {

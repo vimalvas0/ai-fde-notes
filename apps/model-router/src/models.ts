@@ -3,7 +3,7 @@
 
 export type Complexity = "simple" | "complex";
 
-/** Small, cheap model used only to judge prompts the free rules cannot decide. */
+/** Small, fast, cheap model that judges every prompt before routing. */
 export const CLASSIFIER_MODEL = "claude-haiku";
 
 /** Models to try for each kind of prompt, in order. The next one is used if a call fails. */

@@ -24,7 +24,7 @@ startLangfuse();
 try {
   const ctx = await routePrompt(prompt, { dryRun });
 
-  console.log(`Route:  ${ctx.complexity}, decided by ${ctx.decidedBy}: ${ctx.reason}`);
+  console.log(`Route:  ${ctx.complexity} (${ctx.reason})`);
   if (dryRun) {
     console.log("Dry run: no answer requested.");
   } else {
