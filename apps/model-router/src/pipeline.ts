@@ -42,7 +42,7 @@ const baseClient = new OpenAI({
   apiKey: process.env.LITELLM_MASTER_KEY ?? "",
 });
 // observeOpenAI turns every call into a Langfuse generation under the current span.
-const client = langfuseEnabled ? observeOpenAI(baseClient) : baseClient;
+export const client = langfuseEnabled ? observeOpenAI(baseClient) : baseClient;
 
 // Cap on answer length. Keeps cost bounded; raise it if answers get cut off.
 const MAX_ANSWER_TOKENS = 2000;

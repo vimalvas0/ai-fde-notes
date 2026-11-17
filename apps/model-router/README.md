@@ -46,6 +46,37 @@ Only show the route, with no answer:
 npm run route -- --dry "What is the capital of France?"
 ```
 
+## Function calls and failing tools
+
+A second script, `src/tools-demo.ts`, is for learning function calls: how they look in Langfuse and what to do when the tool fails.
+
+```bash
+npm run tools            # all scenarios
+npm run tools -- 404     # one scenario (part of its name is enough)
+```
+
+The model never runs a tool. It only replies "call `get_order` with these arguments"; our code runs it and sends the result back as a message, and the model writes the answer from that. So when a tool fails, the result message is the only way the model finds out. The script starts a small fake HTTP API inside itself (no setup) and asks a question per failure:
+
+| Scenario | What the API does | What happens |
+| --- | --- | --- |
+| `success` | 200 | Baseline: tool call, tool result, answer |
+| `404-not-found` | 404 | Not retryable. The model says the order does not exist and asks the user to check, instead of inventing one |
+| `400-bad-input` | 400, "id must look like ORD-1234" | The model sent `1001`, reads the error message, fixes the argument and calls again |
+| `empty-result` | 200 with an empty list | Not an error: the model says there is nothing there |
+| `503-recovers` | 503 twice, then 200 | The tool retries with a growing wait; the model never sees the failure |
+| `500-gives-up` | 500 every time | Retries run out, the model is told `retryable: true`, and reports the outage while still sharing what it did find |
+| `429-rate-limit` | 429 with `Retry-After` | The tool waits as long as the API says, then succeeds |
+
+The rules the script follows:
+
+- **Retry in code, not in the model**, for errors that can go away by themselves (5xx, 429, no response). The model only hears about them once retries are used up. Retrying 4xx does not help, because the request itself is wrong.
+- **Every failure returns the same JSON shape** (`ok`, `kind`, `status`, `message`, `retryable`), so the model can tell "fix your arguments" from "try later" without reading prose.
+- **A tool never throws.** Every call gets a reply, even a failed one, or the next request to the model is rejected.
+- **Empty is not an error.** A 200 with no rows is `ok: true`, and the system prompt says so.
+- **Tell the model not to guess.** The system prompt says what to do for each case; without it a model may fill a failed lookup with plausible data.
+
+In Langfuse, each scenario is a trace `tool-calls: <scenario>`: a generation whose output is the tool call, a `tool` observation (input: the arguments, output: exactly what the model sees), one `http-attempt` span inside it per try, then a second generation that reads the result. Failed tries and failed tools are marked red (level `ERROR`) with the status in the message. Compare `503-recovers` (red attempts, green tool) with `500-gives-up` (red all the way up).
+
 ## How the pipeline works
 
 ```
@@ -67,6 +98,7 @@ Each stage is a span inside one Langfuse trace named `model-router`. The trace's
 - [src/pipeline.ts](src/pipeline.ts) — the stages and the loop that runs them. Adding a stage means adding one object to the `STAGES` list.
 - [src/models.ts](src/models.ts) — which models serve each tier. Change the routing here.
 - [src/route.ts](src/route.ts) — the command-line entry point.
+- [src/tools-demo.ts](src/tools-demo.ts) — the function-call scenarios above: fake API, retrying tool runner, and the model loop.
 
 ## Things to try
 

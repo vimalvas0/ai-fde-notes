@@ -10,6 +10,7 @@
   "scripts": {
     "route": "node --env-file-if-exists=.env src/route.ts",
     "demo": "node --env-file-if-exists=.env src/demo.ts",
+    "tools": "node --env-file-if-exists=.env src/tools-demo.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
