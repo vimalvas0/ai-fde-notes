@@ -69,6 +69,10 @@ function startApi(): Promise<{ server: Server; baseUrl: string }> {
       return order ? send(200, order) : send(404, { message: `order ${id} does not exist` });
     }
 
+    if (sub === "refund" && req.method === "POST") {
+      return order ? send(200, { order_id: id, refunded: true }) : send(404, { message: `order ${id} does not exist` });
+    }
+
     // Shipping status: a different failure for each order.
     if (sub === "shipping") {
       const n = hit(`shipping:${id}`);
@@ -149,7 +153,48 @@ const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "refund_order",
+      description: "Refund an order. Amount is in dollars.",
+      parameters: {
+        type: "object",
+        properties: { order_id: { type: "string", description: "Order id" }, amount: { type: "number", description: "Dollars to refund" } },
+        required: ["order_id", "amount"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_order",
+      description: "Permanently delete an order and its history.",
+      parameters: {
+        type: "object",
+        properties: { order_id: { type: "string", description: "Order id" } },
+        required: ["order_id"],
+      },
+    },
+  },
 ];
+
+// ---- Policy -----------------------------------------------------------------
+// Rules about what the assistant may do, checked in code before any tool runs. The
+// model is told the rules too, but a prompt is a request and this is a lock: a model
+// can be talked around, an `if` cannot. The check sees the real arguments, so a rule
+// can depend on them (a refund is fine up to a limit).
+
+const REFUND_LIMIT = 50; // dollars the assistant may refund without a human
+
+/** Returns the reason a call is not allowed, or undefined when it may go ahead. */
+function checkPolicy(name: string, args: Record<string, unknown>): string | undefined {
+  if (name === "delete_order") return "deleting orders is not allowed for this assistant; only support staff can do it";
+  if (name === "refund_order" && Number(args.amount) > REFUND_LIMIT) {
+    return `refunds above $${REFUND_LIMIT} need manager approval; this assistant may refund up to $${REFUND_LIMIT}`;
+  }
+  return undefined;
+}
 
 /**
  * What a tool hands back to the model. Every failure looks the same, so the model
@@ -168,13 +213,13 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let apiUrl = "";
 
 /** One HTTP call with retries for errors that can go away on their own (5xx, 429). */
-async function callApi(path: string): Promise<ToolResult> {
+async function callApi(path: string, method = "GET"): Promise<ToolResult> {
   for (let attempt = 1; ; attempt++) {
     type Outcome = { done: ToolResult } | { done?: undefined; failure: Extract<ToolResult, { ok: false }>; retryAfter: number };
     const outcome = await observe<Outcome>(`http-attempt ${attempt}`, "span", async (obs) => {
-      obs.update({ input: { path, attempt } });
+      obs.update({ input: { method, path, attempt } });
       try {
-        const res = await fetch(apiUrl + path, { signal: AbortSignal.timeout(3000) });
+        const res = await fetch(apiUrl + path, { method, signal: AbortSignal.timeout(3000) });
         const body: any = await res.json().catch(() => ({}));
         if (res.ok) {
           obs.update({ output: { status: res.status } });
@@ -215,15 +260,22 @@ async function runTool(name: string, rawArgs: string): Promise<ToolResult> {
   return observe(name, "tool", async (obs) => {
     obs.update({ input: rawArgs });
 
-    let args: Record<string, string>;
+    let args: Record<string, any>;
     try {
       args = JSON.parse(rawArgs || "{}");
     } catch {
       return finish(obs, { ok: false, kind: "bad_arguments", message: "arguments were not valid JSON", retryable: false, attempts: 0 });
     }
 
+    // Policy first. A blocked call never reaches the API, so there are no http-attempt spans.
+    const blocked = checkPolicy(name, args);
+    if (blocked) {
+      return finish(obs, { ok: false, kind: "policy_blocked", message: blocked, retryable: false, attempts: 0 });
+    }
+
     let result: ToolResult;
-    if (name === "get_order") result = await callApi(`/orders/${encodeURIComponent(args.order_id ?? "")}`);
+    if (name === "refund_order") result = await callApi(`/orders/${encodeURIComponent(args.order_id ?? "")}/refund`, "POST");
+    else if (name === "get_order") result = await callApi(`/orders/${encodeURIComponent(args.order_id ?? "")}`);
     else if (name === "get_shipping_status") result = await callApi(`/orders/${encodeURIComponent(args.order_id ?? "")}/shipping`);
     else if (name === "list_orders") result = await callApi(`/orders?customer=${encodeURIComponent(args.customer_id ?? "")}`);
     else result = { ok: false, kind: "unknown_tool", message: `no tool named ${name}`, retryable: false, attempts: 0 };
@@ -236,7 +288,7 @@ async function runTool(name: string, rawArgs: string): Promise<ToolResult> {
 function finish(obs: Obs, result: ToolResult): ToolResult {
   obs.update({
     output: result,
-    ...(result.ok ? {} : { level: "ERROR" as const, statusMessage: `${result.kind}: ${result.message}` }),
+    ...(result.ok ? {} : { level: (result.kind === "policy_blocked" ? "WARNING" : "ERROR") as "WARNING" | "ERROR", statusMessage: `${result.kind}: ${result.message}` }),
   });
   return result;
 }
@@ -250,7 +302,9 @@ const SYSTEM_PROMPT =
   "If ok is false and retryable is false, the request was wrong: if you can fix the arguments from what the user said, call the tool once more, " +
   "otherwise explain the problem and ask the user. " +
   "If ok is false and retryable is true, the service is having trouble and retries were already used: do not call the tool again, " +
-  "tell the user plainly that it is temporarily unavailable and share anything you did manage to look up.";
+  "tell the user plainly that it is temporarily unavailable and share anything you did manage to look up. " +
+  "If kind is policy_blocked, a rule forbids this action: do not retry it, do not try to get the same result through another tool, " +
+  "explain the rule in plain words and say what the user can do instead.";
 
 async function chat(question: string): Promise<{ answer: string; rounds: number }> {
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -319,6 +373,21 @@ const SCENARIOS: { name: string; what: string; question: string }[] = [
     name: "429-rate-limit",
     what: "API says 429 with Retry-After. The tool waits as told, then succeeds.",
     question: "What is the shipping status of ORD-4004?",
+  },
+  {
+    name: "policy-blocked-always",
+    what: "The user asks for an action the assistant is never allowed to take. Policy blocks it before the API is called.",
+    question: "Please delete order ORD-1001, I don't want it on my account.",
+  },
+  {
+    name: "policy-blocked-limit",
+    what: "A refund over the limit: the same tool as the next scenario, but policy blocks this amount.",
+    question: "Refund $89 for order ORD-1001, the keyboard arrived broken.",
+  },
+  {
+    name: "policy-allowed",
+    what: "Control: a refund within the limit passes policy and runs. Compare its trace with the blocked one.",
+    question: "Refund $20 for order ORD-1001, the box was damaged.",
   },
 ];
 
