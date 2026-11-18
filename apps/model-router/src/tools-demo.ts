@@ -1,5 +1,7 @@
 // npm run tools            run every scenario
 // npm run tools -- 404     run one scenario (name or part of it)
+// npm run tools -- --ask "refund $80 for ORD-1001"   try your own prompt once
+// npm run tools -- --chat  type prompts one after another (--help lists the ids that trigger each failure)
 //
 // Function calling, and what to do when the tool fails. The model never runs
 // anything: it only asks for a tool ("call get_order with id X"). Our code runs the
@@ -19,6 +21,7 @@
 
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import { createInterface } from "node:readline/promises";
 
 import { startActiveObservation, propagateAttributes } from "@langfuse/tracing";
 import type OpenAI from "openai";
@@ -398,11 +401,51 @@ if (!process.env.LITELLM_MASTER_KEY) {
   process.exit(1);
 }
 
-const only = process.argv[2];
-const selected = only ? SCENARIOS.filter((s) => s.name.includes(only)) : SCENARIOS;
-if (selected.length === 0) {
-  console.error(`No scenario matches "${only}". Choose from: ${SCENARIOS.map((s) => s.name).join(", ")}`);
-  process.exit(1);
+/** One question, one trace. The fake API starts fresh, so a flaky endpoint is flaky again. */
+async function ask(question: string, label: string): Promise<void> {
+  calls.clear();
+  const run = async () => {
+    const { answer, rounds } = await chat(question);
+    console.log(`  answer (${rounds} model call${rounds === 1 ? "" : "s"}): ${answer.trim()}`);
+    return answer;
+  };
+  if (!langfuseEnabled) {
+    await run();
+    return;
+  }
+  const traceName = `tool-calls: ${label}`;
+  await propagateAttributes({ traceName }, () =>
+    startActiveObservation(traceName, async (root) => {
+      root.update({ input: question });
+      root.update({ output: await run() });
+    }),
+  );
+}
+
+// What to type to trigger each failure. The fake API decides by id.
+const CHEAT_SHEET = `Ids that trigger each case (type any sentence that uses them):
+  ORD-1001 / ORD-2002 / ORD-3003   real orders, customer C-100
+  ORD-9999                         404, does not exist
+  1001  (no "ORD-" prefix)         400, wrong id format
+  C-200                            customer with no orders (empty result)
+  shipping of ORD-2002             503 twice, then works
+  shipping of ORD-3003             500 every time
+  shipping of ORD-4004             429 once, then works
+  delete any order                 blocked by policy, always
+  refund over $50                  blocked by policy (up to $50 is allowed)`;
+
+const args = process.argv.slice(2);
+
+if (args.includes("--help")) {
+  console.log(`npm run tools                     run every built-in scenario
+npm run tools -- <name>           run scenarios whose name contains <name>
+npm run tools -- --ask "<text>"   send your own prompt once
+npm run tools -- --chat           type prompts one after another
+
+Scenarios: ${SCENARIOS.map((s) => s.name).join(", ")}
+
+${CHEAT_SHEET}`);
+  process.exit(0);
 }
 
 startLangfuse();
@@ -410,27 +453,34 @@ const api = await startApi();
 apiUrl = api.baseUrl;
 
 try {
-  for (const scenario of selected) {
-    calls.clear(); // each scenario starts with a fresh API
-    console.log(`\n== ${scenario.name}: ${scenario.what}`);
-    console.log(`  user: ${scenario.question}`);
-
-    const run = async () => {
-      const { answer, rounds } = await chat(scenario.question);
-      console.log(`  answer (${rounds} model call${rounds === 1 ? "" : "s"}): ${answer.trim()}`);
-      return answer;
-    };
-
-    if (langfuseEnabled) {
-      const traceName = `tool-calls: ${scenario.name}`;
-      await propagateAttributes({ traceName }, () =>
-        startActiveObservation(traceName, async (root) => {
-          root.update({ input: scenario.question });
-          root.update({ output: await run() });
-        }),
-      );
-    } else {
-      await run();
+  if (args.includes("--chat")) {
+    // Each line is a fresh conversation (no memory of earlier lines), so every
+    // prompt is judged on its own and gets its own trace.
+    console.log(`${CHEAT_SHEET}\n\nType a prompt and press Enter. Empty line or Ctrl+C to quit.`);
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    while (true) {
+      const line = (await rl.question("\nyou> ").catch(() => "")).trim();
+      if (!line) break;
+      try {
+        await ask(line, "chat");
+      } catch (error) {
+        console.error("  failed:", error instanceof Error ? error.message : error);
+      }
+    }
+    rl.close();
+  } else if (args.includes("--ask")) {
+    const text = args.filter((a) => a !== "--ask").join(" ");
+    if (!text) throw new Error('Usage: npm run tools -- --ask "<your prompt>"');
+    console.log(`  user: ${text}`);
+    await ask(text, "ask");
+  } else {
+    const only = args[0];
+    const selected = only ? SCENARIOS.filter((s) => s.name.includes(only)) : SCENARIOS;
+    if (selected.length === 0) throw new Error(`No scenario matches "${only}". Choose from: ${SCENARIOS.map((s) => s.name).join(", ")}`);
+    for (const scenario of selected) {
+      console.log(`\n== ${scenario.name}: ${scenario.what}`);
+      console.log(`  user: ${scenario.question}`);
+      await ask(scenario.question, scenario.name);
     }
   }
 } catch (error) {

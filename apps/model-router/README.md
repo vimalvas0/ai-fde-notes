@@ -2,7 +2,7 @@
 
 A small CLI that decides which model should answer a prompt. A small, fast model first judges how hard the prompt is. Easy questions then go to a cheap model and hard ones to a stronger model, and if a model fails the next one is tried. It runs on the [LiteLLM gateway](../README.md), so each model is just a name, and every step shows up as one trace in Langfuse.
 
-Related notes: [Tokens, tokenization and the context window](../../notes/fundamentals/tokens-and-context-window.md) (the "route easy requests to cheaper models" practice) and [Temperature and output generation parameters](../../notes/fundamentals/temperature-and-sampling-parameters.md).
+Related notes: [Function calls and tool-call errors](../../notes/agents/tool-call-errors.md) (the tools demo below), [Tokens, tokenization and the context window](../../notes/fundamentals/tokens-and-context-window.md) (the "route easy requests to cheaper models" practice) and [Temperature and output generation parameters](../../notes/fundamentals/temperature-and-sampling-parameters.md).
 
 ## Setup
 
@@ -66,6 +66,28 @@ The model never runs a tool. It only replies "call `get_order` with these argume
 | `503-recovers` | 503 twice, then 200 | The tool retries with a growing wait; the model never sees the failure |
 | `500-gives-up` | 500 every time | Retries run out, the model is told `retryable: true`, and reports the outage while still sharing what it did find |
 | `429-rate-limit` | 429 with `Retry-After` | The tool waits as long as the API says, then succeeds |
+
+Three more scenarios are about policy: a rule checked in code before the tool runs, so the model cannot talk its way past it.
+
+| Scenario | Rule | What happens |
+| --- | --- | --- |
+| `policy-blocked-always` | `delete_order` is never allowed | Result is `policy_blocked`; the API is never called (0 attempts). The model explains and points to support |
+| `policy-blocked-limit` | Refunds over $50 need a manager | Same block, decided from the arguments (`amount: 89`) |
+| `policy-allowed` | Control: a $20 refund | Passes the check and runs, so you can compare its trace with the blocked one |
+
+A blocked call shows as `WARNING`, not `ERROR` in Langfuse: nothing broke, the rule worked.
+
+### Try your own prompts
+
+You do not have to stick to the scenarios. Type what you want and watch what the tools and the model do:
+
+```bash
+npm run tools -- --chat                              # type prompts one after another
+npm run tools -- --ask "Refund $80 for ORD-2002"     # one prompt
+npm run tools -- --help                              # the ids that trigger each failure
+```
+
+The fake API decides by id: `ORD-9999` is a 404, `1001` without the prefix is a 400, `C-200` has no orders, shipping for `ORD-2002` fails twice then works, `ORD-3003` always fails with 500, and `ORD-4004` is rate limited once. Any sentence that uses them works. In `--chat`, each line is a new conversation with its own trace (`tool-calls: chat`) and a fresh API, so a flaky endpoint is flaky again every time.
 
 The rules the script follows:
 
