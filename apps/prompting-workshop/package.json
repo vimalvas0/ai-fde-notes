@@ -1,0 +1,21 @@
+{
+  "name": "prompting-workshop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hit-and-trial workshop: edit a prompt, rerun, and compare zero-shot, one-shot and few-shot",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "shots": "node --env-file-if-exists=.env src/shots.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "openai": "^7.57.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}

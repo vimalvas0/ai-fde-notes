@@ -1,0 +1,28 @@
+@task
+Classify the customer message into exactly one label:
+billing, bug, feature_request, other.
+Reply with the label only.
+
+@example
+I was charged twice for May.
+=>
+billing
+
+@example
+The export button does nothing when I click it.
+=>
+bug
+
+@example
+Could you add dark mode?
+=>
+feature_request
+
+@input
+My invoice shows a plan I never signed up for.
+
+@input
+I was billed after the app crashed during checkout.
+
+@input
+Love the product, keep it up!

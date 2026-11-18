@@ -36,4 +36,5 @@ Notes, small apps and diagrams for learning and revising how LLMs work and how t
 | --- | --- |
 | [LiteLLM gateway](apps/README.md) | One local address that routes requests to OpenAI or Anthropic models by name, run with Docker Compose |
 | [Model router](apps/model-router/) | A routing pipeline (a small model judges the prompt, then the answer with fallback) that sends each prompt to a cheap or strong model through the LiteLLM gateway, traced in Langfuse; also a function-call demo with failing tools (5xx, 4xx, empty result, policy block) you can try with your own prompts (TypeScript) |
+| [Prompting workshop](apps/prompting-workshop/) | A hit-and-trial script: edit the instruction, examples and test inputs (in code or a plain text file), then compare zero-shot, one-shot and few-shot answers side by side (TypeScript) |
 | [Token usage tracker](apps/token-usage-tracker/) | Tracking input and output tokens per user, stored locally and sent to Langfuse; also a system-prompt demo that returns short JSON about a TV series (TypeScript) |
