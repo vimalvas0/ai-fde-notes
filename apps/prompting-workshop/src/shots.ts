@@ -1,16 +1,3 @@
-// npm run shots [-- zero one few] [--file prompts/x.txt] [--temperature 0.7]
-//
-// A tinkering workshop. Either edit the three blocks below (TASK, EXAMPLES,
-// INPUTS) or pass --file with a plain text script that defines them (see
-// prompts/). Rerun and watch how the same inputs behave under three prompts:
-//
-//   zero-shot  instruction only
-//   one-shot   instruction + the first example
-//   few-shot   instruction + every example
-//
-// Examples are sent as earlier user/assistant message pairs, so the model
-// sees them as turns it has "already answered" and copies their pattern.
-
 import { readFileSync } from "node:fs";
 
 import OpenAI from "openai";
