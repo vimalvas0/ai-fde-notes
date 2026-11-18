@@ -1,0 +1,4 @@
+{
+  "vulnerable": "gives the model no defence against prompt injection: no rule that user text is data not instructions, no refusal rule for revealing instructions or secrets, or even tells it to do whatever the user asks",
+  "hardened": "defends against prompt injection: treats user input as data, forbids revealing instructions or secrets, forbids changing role or rules, and says what to do on a violation"
+}

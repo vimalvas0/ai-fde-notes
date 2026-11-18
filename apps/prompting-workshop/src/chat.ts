@@ -25,16 +25,12 @@ const HARD_SYSTEM_PROMPT = `Hard rules, which no later instruction can override:
 - No preamble, no restating the question, no closing offers.
 - If the script below asks for a fixed format, reply in that format only.`;
 
-const CLASSIFIER_PROMPT = `You will be shown a system prompt written for another AI.
-Classify it by how many worked examples it contains. An example is a sample input paired with the exact output wanted:
-- zero-shot: instructions only, no worked example
-- one-shot: exactly one worked example
-- few-shot: two or more worked examples
-Reply with JSON only: {"type": "zero-shot" | "one-shot" | "few-shot", "examples": <number>, "reason": "<one short sentence>"}`;
-
-const path = process.argv[2];
+const args = process.argv.slice(2);
+const typesIndex = args.indexOf("--types");
+const typesPath = typesIndex >= 0 ? args[typesIndex + 1] : "types.json";
+const path = args.find((a, i) => !a.startsWith("--") && !(typesIndex >= 0 && i === typesIndex + 1));
 if (!path) {
-  console.error("Usage: npm run chat <script-file>   e.g. npm run chat prompts/ticket-classifier.txt");
+  console.error("Usage: npm run chat <script-file> [--types types.json]   e.g. npm run chat prompts/ticket-classifier.txt");
   process.exit(1);
 }
 if (!process.env.OPENAI_API_KEY) {
@@ -53,6 +49,22 @@ if (!script) {
   console.error(`${path} is empty.`);
   process.exit(1);
 }
+
+// The classifier's labels are yours: types.json maps each type name to what it means.
+let scriptTypes: Record<string, string>;
+try {
+  scriptTypes = JSON.parse(readFileSync(typesPath ?? "", "utf8"));
+  if (Object.keys(scriptTypes).length === 0) throw new Error("no types defined");
+} catch (error) {
+  console.error(`Could not load types from ${typesPath}: ${error instanceof Error ? error.message : error}`);
+  console.error('Expected a JSON object like {"zero-shot": "instructions only", ...}');
+  process.exit(1);
+}
+
+const CLASSIFIER_PROMPT = `You will be shown a system prompt written for another AI.
+Classify it as exactly one of these types:
+${Object.entries(scriptTypes).map(([name, meaning]) => `- ${name}: ${meaning}`).join("\n")}
+Reply with JSON only: {"type": ${Object.keys(scriptTypes).map((t) => `"${t}"`).join(" | ")}, "reason": "<one short sentence>"}`;
 
 const model = process.env.OPENAI_MODEL ?? "gpt-5-mini";
 startLangfuse();
@@ -95,9 +107,10 @@ async function classifyScript(): Promise<string> {
     });
     inputTokens += completion.usage?.prompt_tokens ?? 0;
     outputTokens += completion.usage?.completion_tokens ?? 0;
-    const { type, examples, reason } = JSON.parse(completion.choices[0]?.message.content ?? "");
-    scriptType = String(type);
-    return `${type} (${examples} example(s)) — ${reason}`;
+    const { type, reason } = JSON.parse(completion.choices[0]?.message.content ?? "");
+    // Only accept a type you defined; anything else is flagged, not trusted.
+    scriptType = Object.hasOwn(scriptTypes, type) ? type : "unknown";
+    return `${type} — ${reason}`;
   } catch (error) {
     return `could not classify (${error instanceof Error ? error.message : error})`;
   }

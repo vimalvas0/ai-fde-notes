@@ -1,0 +1,5 @@
+{
+  "zero-shot": "instructions only, no worked example",
+  "one-shot": "exactly one worked example (a sample input paired with the exact output wanted)",
+  "few-shot": "two or more worked examples"
+}
