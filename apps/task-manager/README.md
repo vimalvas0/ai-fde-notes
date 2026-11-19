@@ -66,3 +66,30 @@ your sentence ─▶ intent model ─▶ { intents, task_ids, summary, message }
 - The agent sees only the 50 most recently modified tasks.
 - Times and relative dates use the browser's time zone, sent with each request.
 - Cached-input discounts are not applied, so shown cost is slightly high.
+
+## Known failure cases
+
+### "Buy vegetables tonight at 8pm" fails with "Intent detection failed validation twice"
+
+What you see: the box shows `Intent detection failed validation twice (task_ids: an update needs the id of the task to change).` and no task is created. The task list already held `TSK-001`, a cousin's wedding at 9 pm.
+
+What happened (inferred from the error text, not from the model's raw reply, which is not stored for failed actions):
+
+1. The intent model (`gpt-5-nano`, minimal reasoning) answered `intents: ["update"]` with an empty `task_ids`. The likely trigger is the time phrase "tonight at 8pm" sitting next to an existing task that also had an evening time, so the request read as "change a time" instead of "add a task".
+2. The validator rejected it: an update must name a task id.
+3. The retry only said "Fix it and reply again". The model could fix the reply by inventing an id or by changing the intent to `create`, and it repeated the same answer.
+4. After the second failure the step throws. It fails closed on purpose (nothing is changed without a classification), but the user gets an internal error message and no recovery.
+
+Why it is a design gap, not only a bad model reply:
+
+- The validator catches the mistake but the retry does not tell the model what the valid options are.
+- The same small model is asked to correct itself, so it tends to repeat the first answer.
+- A failed intent action is not saved, so Logs and the database show nothing to debug from. The cost of the two failed calls is also not shown.
+
+Possible fixes, not applied yet:
+
+- Make the retry message name the options: "an update needs an id from the list; if no listed task is being changed, this is a create".
+- Add an example to the intent prompt of a new task whose time or date resembles an existing one.
+- On a second failure, fall back to `unclear` with a message asking the user to rephrase, instead of an error.
+- Save failed actions (with the raw model replies) so Logs can show them.
+- Try a stronger `INTENT_MODEL` and compare.
