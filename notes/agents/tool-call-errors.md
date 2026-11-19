@@ -134,6 +134,10 @@ In Langfuse each question is one trace: a model call whose output is the tool ca
 - **A policy that checks one call at a time misses totals.** Two refunds of $45 each pass a $50 limit. Track running totals if that matters.
 - **Always cap model rounds**, so a model that keeps asking for tools cannot loop forever.
 
+## Related app
+
+[Task manager](../../apps/task-manager/): create, update and delete tools whose errors (unknown id, ambiguous match) go back to the model.
+
 ## Revise
 
 Questions to answer from memory when coming back to this note.
