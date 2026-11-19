@@ -5,6 +5,7 @@
 
 import { mkdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
+import type { IntentOutcome } from "./intent.ts";
 import { LABELS, type LabelName, type Labels } from "./labels.ts";
 
 mkdirSync("data", { recursive: true });
@@ -36,9 +37,15 @@ db.exec(`
     output_tokens INTEGER NOT NULL,
     cost_usd      REAL NOT NULL,
     calls         TEXT NOT NULL,  -- JSON: CallRecord[]
-    changes       TEXT NOT NULL   -- JSON: Change[]
+    changes       TEXT NOT NULL,  -- JSON: Change[], one per task touched, with the labels fetched
+    intent        TEXT            -- JSON: what the intent step detected
   );
 `);
+
+// Databases created before the intent column existed.
+if (!db.prepare("PRAGMA table_info(actions)").all().some((column) => column.name === "intent")) {
+  db.exec("ALTER TABLE actions ADD COLUMN intent TEXT");
+}
 
 export type Task = {
   id: number;
@@ -133,7 +140,13 @@ export type CallRecord = {
   ms: number;
 };
 
-export type Change = { op: "created" | "updated" | "deleted"; ref: string; description: string };
+export type Change = {
+  op: "created" | "updated" | "deleted";
+  ref: string;
+  description: string;
+  labels?: Labels; // what the label model returned (not set for deletes and for older rows)
+  labelError?: string; // set when label extraction failed and every label was reported missing
+};
 
 export type Action = {
   id: number;
@@ -147,18 +160,20 @@ export type Action = {
   costUsd: number;
   calls: CallRecord[];
   changes: Change[];
+  intent: IntentOutcome | null; // null for rows saved before the intent step existed
 };
 
 export function saveAction(action: Omit<Action, "id" | "createdAt">): Action {
   const createdAt = new Date().toISOString();
   const { lastInsertRowid } = db
     .prepare(
-      `INSERT INTO actions (created_at, input, reply, trace_id, duration_ms, input_tokens, output_tokens, cost_usd, calls, changes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO actions (created_at, input, reply, trace_id, duration_ms, input_tokens, output_tokens, cost_usd, calls, changes, intent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       createdAt, action.input, action.reply, action.traceId, action.durationMs, action.inputTokens,
       action.outputTokens, action.costUsd, JSON.stringify(action.calls), JSON.stringify(action.changes),
+      action.intent ? JSON.stringify(action.intent) : null,
     );
   return { ...action, id: Number(lastInsertRowid), createdAt };
 }
@@ -178,5 +193,34 @@ export function lastAction(): Action | null {
     costUsd: row.cost_usd as number,
     calls: JSON.parse(row.calls as string),
     changes: JSON.parse(row.changes as string),
+    intent: row.intent ? JSON.parse(row.intent as string) : null,
   };
+}
+
+/** One entry of a task's history: a change an input action made to it, with that action's intent. */
+export type TaskEvent = {
+  actionId: number;
+  createdAt: string;
+  input: string;
+  intent: IntentOutcome | null;
+  change: Change;
+};
+
+/** Every action that touched the task, newest first. Works for deleted tasks too, since actions are kept. */
+export function taskHistory(ref: string): TaskEvent[] {
+  const rows = db
+    .prepare(
+      `SELECT actions.id, actions.created_at, actions.input, actions.intent, json_each.value AS change
+       FROM actions, json_each(actions.changes)
+       WHERE json_extract(json_each.value, '$.ref') = ?
+       ORDER BY actions.id DESC`,
+    )
+    .all(ref);
+  return rows.map((row) => ({
+    actionId: row.id as number,
+    createdAt: row.created_at as string,
+    input: row.input as string,
+    intent: row.intent ? JSON.parse(row.intent as string) : null,
+    change: JSON.parse(row.change as string),
+  }));
 }

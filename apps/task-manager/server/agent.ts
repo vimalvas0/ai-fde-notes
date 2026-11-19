@@ -9,7 +9,7 @@ import {
   createTask, deleteTask, findByDescription, getTask, listTasks, parseTaskId, saveAction, updateTask,
   type Action, type Change, type Task,
 } from "./db.ts";
-import { detectIntent, type Intent } from "./intent.ts";
+import { detectIntent, type Intent, type IntentOutcome } from "./intent.ts";
 import { extractLabels } from "./labels.ts";
 import { observe } from "./langfuse.ts";
 import { chat, flagLastCall, MODELS, type ActionContext } from "./llm.ts";
@@ -146,7 +146,7 @@ function describeTask(task: Task): string {
   return `${task.ref}: ${task.description} [${found}]`;
 }
 
-type Run = { ctx: ActionContext; now: string; changes: Change[] };
+type Run = { ctx: ActionContext; now: string; changes: Change[]; intent: IntentOutcome | null };
 
 /** Runs one tool call and returns the text the model sees. Errors come back as text so the model can react. */
 async function runTool(run: Run, name: string, rawArguments: string): Promise<string> {
@@ -173,7 +173,7 @@ async function execute(run: Run, name: string, rawArguments: string): Promise<st
     const { description } = args.data as z.infer<typeof ARGS.create_task>;
     const { labels, error } = await extractLabels(run.ctx, description, run.now);
     const task = createTask(description, labels);
-    run.changes.push({ op: "created", ref: task.ref, description: task.description });
+    run.changes.push({ op: "created", ref: task.ref, description: task.description, labels, ...(error && { labelError: error }) });
     return `Created ${describeTask(task)}; missing labels: ${task.missingLabels.join(", ") || "none"}.${error ? ` Warning: ${error}` : ""}`;
   }
 
@@ -183,7 +183,7 @@ async function execute(run: Run, name: string, rawArguments: string): Promise<st
     if (id === null || !getTask(id)) return `Error: no task with id "${task_id}".`;
     const { labels, error } = await extractLabels(run.ctx, description, run.now);
     const task = updateTask(id, description, labels);
-    run.changes.push({ op: "updated", ref: task.ref, description: task.description });
+    run.changes.push({ op: "updated", ref: task.ref, description: task.description, labels, ...(error && { labelError: error }) });
     return `Updated ${describeTask(task)}; missing labels: ${task.missingLabels.join(", ") || "none"}.${error ? ` Warning: ${error}` : ""}`;
   }
 
@@ -207,7 +207,7 @@ async function execute(run: Run, name: string, rawArguments: string): Promise<st
 }
 
 export async function handleInput(input: string, timeZone: string): Promise<Action> {
-  const run: Run = { ctx: { calls: [] }, now: describeNow(timeZone), changes: [] };
+  const run: Run = { ctx: { calls: [] }, now: describeNow(timeZone), changes: [], intent: null };
   const started = Date.now();
   let traceId = "";
 
@@ -216,6 +216,7 @@ export async function handleInput(input: string, timeZone: string): Promise<Acti
     const tasks = listTasks().slice(0, TASKS_IN_PROMPT);
     // Middle step: a small model says what the user wants before anything is changed.
     const intent = await detectIntent(run.ctx, input, tasks, run.now, describeTask);
+    run.intent = intent;
     update({ metadata: { intent } });
     const allowed = new Set(intent.intents.map((name) => TOOL_FOR[name]));
     const tools = ALL_TOOLS.filter((tool) => tool.type === "function" && allowed.has(tool.function.name));
@@ -279,5 +280,6 @@ export async function handleInput(input: string, timeZone: string): Promise<Acti
     costUsd: calls.reduce((sum, call) => sum + call.costUsd, 0),
     calls,
     changes: run.changes,
+    intent: run.intent,
   });
 }

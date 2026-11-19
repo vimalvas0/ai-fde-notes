@@ -44,11 +44,13 @@ your sentence ─▶ intent model ─▶ { intents, task_ids, summary, message }
 - **Tool errors**: unknown id, no match, or an ambiguous description return an error string to the agent, which then asks you instead of guessing.
 - **Langfuse**: one `task-action` span per input, with each model call (`generation`) and tool run (`tool`) as children.
 - **Cost**: tokens come from each response and are priced from the table in `server/pricing.ts`. Logs shows the total and each call. Prices are typed in by hand, so check them against the provider's page.
-- **Database**: `data/tasks.db` (created on first run): `tasks`, `task_labels`, and `actions` (one row per input, with cost and calls). The task list is ordered by last modified.
+- **Database**: `data/tasks.db` (created on first run): `tasks`, `task_labels`, and `actions` (one row per input: the intent detected, every change it made with the labels fetched, cost and calls). The task list is ordered by last modified. A database from an earlier version gets the new `intent` column added on start.
+- **History**: open a task and switch to the History tab. It lists every action that touched that task, newest first: what you typed, the intent detected, and the labels fetched (found, or dashed when missing). It is read from `actions`, so a deleted task's history is kept too. Actions saved before this feature show "not recorded" for what they did not store.
 
 ## What to look at
 
 - A task with all three labels, one with none, and the dashed "no date" chips.
+- In a task's History tab, how the same task's labels changed after an update, next to the intent that caused it.
 - In Logs, the agent call versus the cheaper label call, and how many calls one sentence took.
 - In Langfuse, the single trace for one input and the tool spans inside it.
 

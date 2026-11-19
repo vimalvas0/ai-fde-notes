@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
-import type { Action, Task } from "../server/db.ts";
+import type { Action, Task, TaskEvent } from "../server/db.ts";
 
 type LabelName = "time" | "date" | "location";
 const LABELS: LabelName[] = ["time", "date", "location"];
@@ -72,23 +72,91 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
+function History({ taskRef }: { taskRef: string }) {
+  const [events, setEvents] = useState<TaskEvent[] | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api<TaskEvent[]>(`/api/tasks/${taskRef}/history`).then(setEvents).catch((e) => setError(e.message));
+  }, [taskRef]);
+
+  if (error) return <p className="error">{error}</p>;
+  if (!events) return <p className="muted">Loading…</p>;
+  if (events.length === 0) return <p className="muted">No recorded actions for this task.</p>;
+
+  return (
+    <ol className="history">
+      {events.map((event) => (
+        <li key={`${event.actionId}-${event.change.op}`}>
+          <div className="event-head">
+            <span className={`op ${event.change.op}`}>{event.change.op}</span>
+            <span className="muted small">{showStamp(event.createdAt)}</span>
+          </div>
+          <p className="quote">“{event.input}”</p>
+          <p className="event-text">{event.change.description}</p>
+          <dl className="facts">
+            <dt>Intent</dt>
+            <dd>
+              {event.intent ? (
+                <>
+                  {event.intent.intents.map((intent) => <span key={intent} className="chip intent">{intent}</span>)}
+                  <span className="muted small"> {event.intent.summary}</span>
+                </>
+              ) : (
+                <span className="muted small">not recorded</span>
+              )}
+            </dd>
+            <dt>Labels</dt>
+            <dd>
+              {event.change.op === "deleted" ? (
+                <span className="muted small">none, task deleted</span>
+              ) : event.change.labels ? (
+                <div className="chips">
+                  {LABELS.map((name) => <Chip key={name} name={name} value={event.change.labels?.[name] ?? undefined} />)}
+                </div>
+              ) : (
+                <span className="muted small">not recorded</span>
+              )}
+              {event.change.labelError && <p className="error small">{event.change.labelError}</p>}
+            </dd>
+          </dl>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function TaskModal({ task, onClose }: { task: Task; onClose: () => void }) {
+  const [tab, setTab] = useState<"details" | "history">("details");
   return (
     <Modal title={task.ref} onClose={onClose}>
-      <p className="task-text">{task.description}</p>
-      <h3>Labels</h3>
-      <dl className="labels">
-        {LABELS.map((name) => (
-          <div key={name}>
-            <dt>{name}</dt>
-            <dd>{task.labels[name] !== undefined ? <Chip name={name} value={task.labels[name]} /> : <Chip name={name} />}</dd>
-          </div>
+      <div className="tabs" role="tablist">
+        {(["details", "history"] as const).map((name) => (
+          <button key={name} role="tab" aria-selected={tab === name} className={tab === name ? "on" : ""} onClick={() => setTab(name)}>
+            {name === "details" ? "Details" : "History"}
+          </button>
         ))}
-      </dl>
-      <p className="muted small">
-        Missing: {task.missingLabels.length ? task.missingLabels.join(", ") : "nothing, all labels found"}
-      </p>
-      <p className="muted small">Created {showStamp(task.createdAt)} · Last modified {showStamp(task.updatedAt)}</p>
+      </div>
+      {tab === "history" ? (
+        <History taskRef={task.ref} />
+      ) : (
+        <>
+          <p className="task-text">{task.description}</p>
+          <h3>Labels</h3>
+          <dl className="labels">
+            {LABELS.map((name) => (
+              <div key={name}>
+                <dt>{name}</dt>
+                <dd><Chip name={name} value={task.labels[name]} /></dd>
+              </div>
+            ))}
+          </dl>
+          <p className="muted small">
+            Missing: {task.missingLabels.length ? task.missingLabels.join(", ") : "nothing, all labels found"}
+          </p>
+          <p className="muted small">Created {showStamp(task.createdAt)} · Last modified {showStamp(task.updatedAt)}</p>
+        </>
+      )}
     </Modal>
   );
 }
@@ -101,6 +169,12 @@ function LogsModal({ action, onClose }: { action: Action | null; onClose: () => 
       ) : (
         <>
           <p className="quote">“{action.input}”</p>
+          {action.intent && (
+            <p className="small">
+              {action.intent.intents.map((intent) => <span key={intent} className="chip intent">{intent}</span>)}{" "}
+              <span className="muted">{action.intent.summary}</span>
+            </p>
+          )}
           <div className="cost">
             <strong>{showMoney(action.costUsd)}</strong>
             <span>end to end</span>

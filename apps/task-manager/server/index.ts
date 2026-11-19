@@ -4,7 +4,7 @@
 import express, { type ErrorRequestHandler } from "express";
 import { fileURLToPath } from "node:url";
 import { handleInput, MAX_INPUT_CHARS } from "./agent.ts";
-import { lastAction, listTasks } from "./db.ts";
+import { lastAction, listTasks, taskHistory } from "./db.ts";
 import { startLangfuse } from "./langfuse.ts";
 
 startLangfuse();
@@ -23,6 +23,13 @@ app.use(express.json({ limit: "20kb" }));
 // Tasks, most recently modified first.
 app.get("/api/tasks", (_req, res) => {
   res.json(listTasks());
+});
+
+// What each input action did to one task: intent detected, labels fetched. Newest first.
+app.get("/api/tasks/:ref/history", (req, res) => {
+  const ref = String(req.params.ref).toUpperCase();
+  if (!/^TSK-\d{3,}$/.test(ref)) throw new UserError("Task ids look like TSK-001.");
+  res.json(taskHistory(ref));
 });
 
 // Cost and calls of the most recent input action (null before the first one).
