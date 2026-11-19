@@ -4,6 +4,8 @@ A task list you change only by typing one sentence into a box. A model reads the
 
 Diagram: [architecture](../../diagrams/agents/task-manager-architecture.excalidraw), the eight steps and what each one is for (open it in Excalidraw).
 
+![Task manager architecture: eight steps from the input box to the reply, with the stop branches](../../diagrams/agents/task-manager-architecture.svg)
+
 Related note: [Function calls and tool-call errors](../../notes/agents/tool-call-errors.md). Delete-by-description can match zero or several tasks, and those come back to the model as tool errors it has to handle.
 
 ## Run
