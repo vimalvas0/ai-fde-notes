@@ -85,3 +85,15 @@ Mitigated by: a retry message that names the valid options (an update needs an e
 
 Status: the fallback and the retry were checked against a fake model server. Not yet re-run with the real `gpt-5-nano`, so the sentence above may still be misclassified; if it is, you now get a rephrase prompt and the reason in Logs. A stronger `INTENT_MODEL` is the next thing to try.
 
+
+### "I have to compare prices of iPad in evening today" was refused as unsupported (prompt fix, not re-run on the real model)
+
+What you see: the reply is "I can only create, update, or delete tasks." and no task is created.
+
+What happened: the intent model (`gpt-5-nano`, minimal reasoning) answered `unsupported`. This was the model's own choice, not the fallback: the fallback text is "I could not tell what you want to do…", and the wording here differs from the prompt's example too. Likely cause: the sentence is a statement ("I have to…") rather than a command ("add…"), and "compare prices" sounds like a research request for the assistant. The prompt only said that things "to do, buy, call, attend or remember" are tasks, so it did not cover obligation phrasing, and `unsupported` was described loosely enough to catch it.
+
+Why the system let it through: `unsupported` ends the action at once. The validator accepts it (it is a legal answer), and nothing checks that a sentence about something the user must do was not a task. There is no second opinion for a wrong refusal.
+
+Changed: the intent prompt now lists obligation and plan phrasings as create ("I have to", "I need to", "remind me to", "don't forget", "gotta", or a bare phrase), says research-sounding activities are still tasks, narrows `unsupported` to questions for the assistant, chit-chat, listing and completing, and adds examples for this sentence, "need to renew passport by march", and a real question ("which iPad should I buy?").
+
+Status: prompt change only, not re-run with the real model. If it still refuses, options: try a stronger `INTENT_MODEL`, or ask for a second opinion before ending on `unsupported`.

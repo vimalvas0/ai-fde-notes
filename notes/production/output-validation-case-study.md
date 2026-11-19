@@ -44,12 +44,15 @@ The task manager has a middle step: a small model (`gpt-5-nano`) reads the user'
 
 **A later change that removes the cause.** The failure came from asking the intent model to do two jobs: classify the request and point at a task. A follow-up split them. The intent step now sees only the request and no task list, so "tonight at 8pm" has nothing to be confused with. A separate identify step, which runs only for update and delete, picks the task from an index of short summaries and labels, and its own validation rejects any id that is not in the index. Splitting a job in two let each step have a narrower prompt and its own check.
 
+**A second case: a valid answer that was wrong.** The user typed "I have to compare prices of iPad in evening today" and got "I can only create, update, or delete tasks." The model answered `unsupported`, which is a legal value, so every check passed. Nothing in the validator can know the sentence was a task. The cause was in the prompt, which described tasks as commands and did not cover "I have to ..." phrasing, and which described `unsupported` too loosely. The fix was to the prompt (obligation phrases listed as create, research-sounding tasks named, `unsupported` narrowed, three examples). This is the limit of validation: it rejects answers that break a rule, so a wrong answer that follows every rule needs better instructions, examples, or a second opinion, not a stricter schema. The diagnosis used the reply text: it differed from the fallback message and from the prompt's own example wording, so it came from the model.
+
 ## Gotchas
 
 - A schema guarantees shape, not truth. Put business rules in a validator and keep them in one place.
 - A retry that adds no information is mostly wasted money. Say what was wrong and what the valid options are.
 - Asking the same small model to correct itself has a low success rate. Better feedback helps; a stronger model for the retry is another option.
 - Fail closed (do nothing) when the step guards an action, but fail kindly: a question to the user, not a stack message.
+- A terminal answer (refuse, stop, give up) deserves the most scrutiny. Validation cannot tell a correct refusal from a wrong one.
 - Save failed attempts. An error you cannot replay is an error you cannot fix.
 
 ## Revise
@@ -62,7 +65,8 @@ Questions to answer from memory when coming back to this note.
 4. Why does the intent step fall back to `unclear` instead of retrying forever or guessing `create`?
 5. What was the root cause behind the failure, and how did a later change remove it instead of patching it?
 6. What evidence was missing when diagnosing the failure, and what was changed so it exists next time?
-7. What does the fake-model test prove, and what does it leave open?
+7. Why could validation not catch the iPad sentence being refused, and what can catch that kind of error?
+8. What does the fake-model test prove, and what does it leave open?
 
 ## See also
 
