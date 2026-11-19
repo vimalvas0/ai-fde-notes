@@ -142,6 +142,7 @@ function TaskModal({ task, onClose }: { task: Task; onClose: () => void }) {
       ) : (
         <>
           <p className="task-text">{task.description}</p>
+          <p className="muted small">Summary (used to find this task): {task.summary}</p>
           <h3>Labels</h3>
           <dl className="labels">
             {LABELS.map((name) => (

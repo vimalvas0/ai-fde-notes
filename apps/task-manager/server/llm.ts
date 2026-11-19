@@ -9,6 +9,7 @@ import { priceOf } from "./pricing.ts";
 
 export const MODELS = {
   intent: process.env.INTENT_MODEL ?? "gpt-5-nano", // small model: decides what the user wants before anything is changed
+  identify: process.env.IDENTIFY_MODEL ?? "gpt-5-nano", // small model: which existing task does the request mean
   agent: process.env.AGENT_MODEL ?? "gpt-5-mini", // reads the sentence, picks the tool
   label: process.env.LABEL_MODEL ?? "gpt-5-nano", // smaller model, one narrow job: extract labels
 };

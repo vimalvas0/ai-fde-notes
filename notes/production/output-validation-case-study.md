@@ -42,6 +42,8 @@ The task manager has a middle step: a small model (`gpt-5-nano`) reads the user'
 
 **How it was checked.** Without calling OpenAI, a local fake model server was pointed at the app. When the fake always returned the bad answer, the user got the rephrase message, no task was created, and Logs listed both rejected calls. When it returned the right answer only after seeing the improved retry message, the task was created. This proves the plumbing, not the real model: whether `gpt-5-nano` now classifies this sentence as `create` is not tested yet, and the cheapest next step is to run the sentence for real.
 
+**A later change that removes the cause.** The failure came from asking the intent model to do two jobs: classify the request and point at a task. A follow-up split them. The intent step now sees only the request and no task list, so "tonight at 8pm" has nothing to be confused with. A separate identify step, which runs only for update and delete, picks the task from an index of short summaries and labels, and its own validation rejects any id that is not in the index. Splitting a job in two let each step have a narrower prompt and its own check.
+
 ## Gotchas
 
 - A schema guarantees shape, not truth. Put business rules in a validator and keep them in one place.
@@ -58,8 +60,9 @@ Questions to answer from memory when coming back to this note.
 2. Give two rules in this app that only a validator, not the schema, can enforce.
 3. Why did the retry not fix the reply, and what three changes made a retry more likely to work?
 4. Why does the intent step fall back to `unclear` instead of retrying forever or guessing `create`?
-5. What evidence was missing when diagnosing the failure, and what was changed so it exists next time?
-6. What does the fake-model test prove, and what does it leave open?
+5. What was the root cause behind the failure, and how did a later change remove it instead of patching it?
+6. What evidence was missing when diagnosing the failure, and what was changed so it exists next time?
+7. What does the fake-model test prove, and what does it leave open?
 
 ## See also
 

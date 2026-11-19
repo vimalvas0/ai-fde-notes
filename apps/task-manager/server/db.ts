@@ -16,6 +16,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS tasks (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     description    TEXT NOT NULL,
+    summary        TEXT,                        -- short title from the label model, used to find the task
     missing_labels TEXT NOT NULL DEFAULT '[]',  -- JSON array of label names not found
     created_at     TEXT NOT NULL,
     updated_at     TEXT NOT NULL
@@ -43,6 +44,9 @@ db.exec(`
 `);
 
 // Databases created before the intent column existed.
+if (!db.prepare("PRAGMA table_info(tasks)").all().some((column) => column.name === "summary")) {
+  db.exec("ALTER TABLE tasks ADD COLUMN summary TEXT");
+}
 if (!db.prepare("PRAGMA table_info(actions)").all().some((column) => column.name === "intent")) {
   db.exec("ALTER TABLE actions ADD COLUMN intent TEXT");
 }
@@ -51,6 +55,7 @@ export type Task = {
   id: number;
   ref: string; // "TSK-001"
   description: string;
+  summary: string; // short title; the description cut to 60 characters for tasks saved before summaries existed
   labels: Partial<Record<LabelName, string>>;
   missingLabels: LabelName[];
   createdAt: string;
@@ -77,15 +82,15 @@ function writeLabels(taskId: number, labels: Labels) {
 export function createTask(description: string, labels: Labels): Task {
   const now = new Date().toISOString();
   const { lastInsertRowid } = db
-    .prepare("INSERT INTO tasks (description, created_at, updated_at) VALUES (?, ?, ?)")
-    .run(description, now, now);
+    .prepare("INSERT INTO tasks (description, summary, created_at, updated_at) VALUES (?, ?, ?, ?)")
+    .run(description, labels.summary, now, now);
   const id = Number(lastInsertRowid);
   writeLabels(id, labels);
   return getTask(id)!;
 }
 
 export function updateTask(id: number, description: string, labels: Labels): Task {
-  db.prepare("UPDATE tasks SET description = ?, updated_at = ? WHERE id = ?").run(description, new Date().toISOString(), id);
+  db.prepare("UPDATE tasks SET description = ?, summary = ?, updated_at = ? WHERE id = ?").run(description, labels.summary, new Date().toISOString(), id);
   writeLabels(id, labels);
   return getTask(id)!;
 }
@@ -122,6 +127,7 @@ function toTask(row: Record<string, unknown>): Task {
     id,
     ref: taskRef(id),
     description: row.description as string,
+    summary: (row.summary as string | null) || (row.description as string).slice(0, 60),
     labels,
     missingLabels: JSON.parse(row.missing_labels as string),
     createdAt: row.created_at as string,

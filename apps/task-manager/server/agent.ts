@@ -6,9 +6,10 @@
 import type { ChatCompletionMessageParam, ChatCompletionTool } from "openai/resources/chat/completions";
 import { z } from "zod";
 import {
-  createTask, deleteTask, findByDescription, getTask, listTasks, parseTaskId, saveAction, updateTask,
+  createTask, deleteTask, findByDescription, getTask, listTasks, parseTaskId, saveAction, taskRef, updateTask,
   type Action, type Change, type Task,
 } from "./db.ts";
+import { identifyTasks } from "./identify.ts";
 import { detectIntent, type Intent, type IntentOutcome } from "./intent.ts";
 import { extractLabels } from "./labels.ts";
 import { observe } from "./langfuse.ts";
@@ -27,7 +28,7 @@ Tools:
 - delete_task(task_id, description): remove a task. Give task_id when you know it, otherwise the description text. Leave the other one null.
 
 How to work:
-- The message holds the current date and time, the current task list (newest change first, each as "TSK-001: description [labels]"), an <intent> block from an earlier step that already worked out what the user wants and which tasks it points at, and the user's request. Follow the intent. You are only given the tools that intent allows.
+- The message holds the current date and time, the current task list (newest change first, each as "TSK-001: description [labels]"), an <intent> block from earlier steps that already worked out what the user wants (intents and summary) and which existing tasks it means (task_ids), the full text of those <target_tasks>, and the user's request. Follow the intent and use only the task_ids it gives for update_task and delete_task; a tool call for any other id is refused. You are only given the tools that intent allows.
 - Descriptions are written in the user's own words and keep any time, date or place they mentioned ("Dentist at Smile Clinic tomorrow 4:30pm"). Keep them short and in plain language. Do not add details the user did not give.
 - Do not extract times, dates or places yourself and do not pass them as separate arguments. Another model labels them from the description after you call the tool.
 - update_task replaces the whole description, so write the complete new text. If the user changes only part ("move TSK-002 to Friday"), start from the existing description and change only that part.
@@ -181,6 +182,7 @@ async function execute(run: Run, name: string, rawArguments: string): Promise<st
     const { task_id, description } = args.data as z.infer<typeof ARGS.update_task>;
     const id = parseTaskId(task_id);
     if (id === null || !getTask(id)) return `Error: no task with id "${task_id}".`;
+    if (!run.intent?.task_ids.includes(taskRef(id))) return `Error: ${taskRef(id)} was not identified as the target. Identified: ${run.intent?.task_ids.join(", ") || "none"}.`;
     const { labels, error } = await extractLabels(run.ctx, description, run.now);
     const task = updateTask(id, description, labels);
     run.changes.push({ op: "updated", ref: task.ref, description: task.description, labels, ...(error && { labelError: error }) });
@@ -201,6 +203,7 @@ async function execute(run: Run, name: string, rawArguments: string): Promise<st
   } else {
     return "Error: give task_id or description.";
   }
+  if (!run.intent?.task_ids.includes(target.ref)) return `Error: ${target.ref} was not identified as the target. Identified: ${run.intent?.task_ids.join(", ") || "none"}.`;
   deleteTask(target.id);
   run.changes.push({ op: "deleted", ref: target.ref, description: target.description });
   return `Deleted ${target.ref}: ${target.description}`;
@@ -213,10 +216,24 @@ export async function handleInput(input: string, timeZone: string): Promise<Acti
 
   const reply = await observe("task-action", "span", input, async (update, id) => {
     traceId = id;
-    const tasks = listTasks().slice(0, TASKS_IN_PROMPT);
-    // Middle step: a small model says what the user wants before anything is changed.
-    const intent = await detectIntent(run.ctx, input, tasks, run.now, describeTask);
+    const allTasks = listTasks();
+    const tasks = allTasks.slice(0, TASKS_IN_PROMPT);
+
+    // Step 1: a small model says what the user wants before anything is changed.
+    const intent = await detectIntent(run.ctx, input, run.now);
     run.intent = intent;
+
+    // Step 2, update and delete only: settle which existing task is meant, from an index of summaries.
+    if (intent.intents.some((name) => name === "update" || name === "delete")) {
+      const identified = await identifyTasks(run.ctx, input, allTasks);
+      intent.task_ids = identified.taskIds;
+      if (identified.taskIds.length === 0) {
+        // Nothing, or more than one task fits: ask, and change nothing.
+        const answer = identified.question ?? "I could not tell which task you mean.";
+        update({ output: answer, metadata: { intent } });
+        return answer;
+      }
+    }
     update({ metadata: { intent } });
     const allowed = new Set(intent.intents.map((name) => TOOL_FOR[name]));
     const tools = ALL_TOOLS.filter((tool) => tool.type === "function" && allowed.has(tool.function.name));
@@ -231,7 +248,7 @@ export async function handleInput(input: string, timeZone: string): Promise<Acti
       { role: "system", content: SYSTEM_PROMPT },
       {
         role: "user",
-        content: `Current date and time: ${run.now}\n\n<tasks>\n${tasks.map(describeTask).join("\n") || "(no tasks yet)"}\n</tasks>\n\n<intent>\n${JSON.stringify({ intents: intent.intents, task_ids: intent.task_ids, summary: intent.summary })}\n</intent>\n\n<request>\n${input}\n</request>`,
+        content: `Current date and time: ${run.now}\n\n<tasks>\n${tasks.map(describeTask).join("\n") || "(no tasks yet)"}\n</tasks>\n\n<intent>\n${JSON.stringify({ intents: intent.intents, task_ids: intent.task_ids, summary: intent.summary })}\n</intent>\n\n<target_tasks>\n${intent.task_ids.map((ref) => describeTask(allTasks.find((task) => task.ref === ref)!)).join("\n") || "(none)"}\n</target_tasks>\n\n<request>\n${input}\n</request>`,
       },
     ];
 
