@@ -2,6 +2,8 @@
 
 A task list you change only by typing one sentence into a box. A model reads the sentence and calls a tool (create, update or delete); a smaller second model then pulls out the task's time, date and location. Tasks live in SQLite, the whole action is one Langfuse trace, and a Logs button shows what the last action cost end to end. React page, Node + TypeScript server.
 
+Diagram: [architecture](../../diagrams/agents/task-manager-architecture.excalidraw), the eight steps and what each one is for (open it in Excalidraw).
+
 Related note: [Function calls and tool-call errors](../../notes/agents/tool-call-errors.md). Delete-by-description can match zero or several tasks, and those come back to the model as tool errors it has to handle.
 
 ## Run

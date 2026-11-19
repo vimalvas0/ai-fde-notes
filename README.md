@@ -35,6 +35,7 @@ Notes, small apps and diagrams for learning and revising how LLMs work and how t
 | Diagram | Used in |
 | --- | --- |
 | [How an LLM works in 10 steps](diagrams/fundamentals/architecture-basics.webp) | [LLM architecture basics](notes/fundamentals/architecture-basics.md) |
+| [Task manager architecture](diagrams/agents/task-manager-architecture.excalidraw) (Excalidraw file; no image export yet) | [Task manager](apps/task-manager/) |
 
 ## Apps
 

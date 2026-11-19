@@ -71,6 +71,6 @@ Questions to answer from memory when coming back to this note.
 ## See also
 
 - App: [Task manager](../../apps/task-manager/README.md) (the "Known failure cases" section)
-- Diagram: none yet
+- Diagram: [Task manager architecture](../../diagrams/agents/task-manager-architecture.excalidraw)
 - Sources: [intent.ts](../../apps/task-manager/server/intent.ts), [labels.ts](../../apps/task-manager/server/labels.ts)
 - Related: [Function calls and tool-call errors](../agents/tool-call-errors.md), the same idea of useful error text applied to tools
