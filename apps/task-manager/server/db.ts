@@ -129,6 +129,7 @@ export type CallRecord = {
   outputTokens: number;
   costUsd: number;
   priceKnown: boolean;
+  note?: string; // set when the reply failed validation and why
   ms: number;
 };
 

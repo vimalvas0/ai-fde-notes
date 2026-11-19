@@ -45,3 +45,9 @@ export async function chat(ctx: ActionContext, name: string, { effort, ...params
     return message;
   });
 }
+
+/** Marks the most recent model call as rejected by validation, so Logs can show why. */
+export function flagLastCall(ctx: ActionContext, note: string): void {
+  const last = ctx.calls.at(-1);
+  if (last) last.note = `rejected: ${note}`;
+}

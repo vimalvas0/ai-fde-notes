@@ -24,6 +24,12 @@ Notes, small apps and diagrams for learning and revising how LLMs work and how t
 | --- | --- |
 | [Function calls and tool-call errors](notes/agents/tool-call-errors.md) | How a function call works, the kinds of tool errors (5xx, 4xx, not found, empty, policy block), wrong arguments from the model, and who should handle each |
 
+### Production
+
+| Note | What it covers |
+| --- | --- |
+| [Output validation: a case study](notes/production/output-validation-case-study.md) | One real failure (an intent step rejecting a valid request), why a plain retry did not help, and the fixes: better retry feedback, a safe fallback, and saved failures |
+
 ## Diagrams
 
 | Diagram | Used in |

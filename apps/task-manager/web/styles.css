@@ -254,3 +254,7 @@ td { padding: 8px 0; border-bottom: 1px solid var(--border); }
   .app { grid-template-columns: 1fr; grid-template-rows: minmax(0, 40vh) 1fr; height: 100dvh; padding: 12px; gap: 12px; }
   main { padding: 56px 8px 24px; align-items: flex-start; }
 }
+
+/* a model reply that failed validation, shown under its call in Logs */
+tr.flagged td { border-bottom: 0; }
+tr.note td { padding: 0 0 8px; color: var(--error); font-size: 12px; }

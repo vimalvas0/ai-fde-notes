@@ -12,7 +12,7 @@ import {
 import { detectIntent, type Intent } from "./intent.ts";
 import { extractLabels } from "./labels.ts";
 import { observe } from "./langfuse.ts";
-import { chat, MODELS, type ActionContext } from "./llm.ts";
+import { chat, flagLastCall, MODELS, type ActionContext } from "./llm.ts";
 
 export const MAX_INPUT_CHARS = 500;
 const MAX_DESCRIPTION_CHARS = 300;
@@ -253,6 +253,7 @@ export async function handleInput(input: string, timeZone: string): Promise<Acti
         } catch {
           problem = "reply was not valid JSON";
         }
+        flagLastCall(run.ctx, problem);
         messages.push({ role: "assistant", content: message.content ?? "" });
         messages.push({ role: "user", content: `That failed validation: ${problem}. Reply again as {"status": ..., "reply": ...}.` });
         continue;

@@ -37,7 +37,7 @@ your sentence ─▶ intent model ─▶ { intents, task_ids, summary, message }
 ```
 
 - **Structured output**: every model output is JSON. Tool arguments follow strict function schemas, the intent model, the label model and the agent's final answer (`{status, reply}`) follow strict JSON schemas, and each is validated with zod, with one retry on failure.
-- **Intent**: a small model runs first and changes nothing. It returns `intents` (create, update, delete, unclear, unsupported), the `task_ids` the request points at, a one-line `summary` and a `message` for the user. The agent is then given that JSON and only the tools those intents allow, so a delete request cannot reach `create_task`. An unclear or off-topic request is answered by the intent step and the agent is never called, which also makes it cheaper.
+- **Intent**: a small model runs first and changes nothing. It returns `intents` (create, update, delete, unclear, unsupported), the `task_ids` the request points at, a one-line `summary` and a `message` for the user. The agent is then given that JSON and only the tools those intents allow, so a delete request cannot reach `create_task`. An unclear or off-topic request is answered by the intent step and the agent is never called, which also makes it cheaper. If the intent reply fails validation twice, the answer is also `unclear` ("try rephrasing") and the action is saved with the rejection reasons.
 - **Tools**: `create_task(description)`, `update_task(task_id, description)`, `delete_task(task_id | description)`. The agent sees today's date and the current task list (ids and text), so "move the dentist one to Friday" resolves to an id. Update replaces the whole description, so the agent writes the complete new text.
 - **Labels**: the small model returns JSON in a fixed shape: `time` (`HH:MM`), `date` (`YYYY-MM-DD`), `location`, and `missing_labels`. A label it cannot find is `null` and listed in `missing_labels`. Each task in the list shows found labels in pastel colours and missing ones as dashed chips.
 - **Validation**: the reply is checked with zod: time format, a real calendar date, a non-empty location, and `missing_labels` must be exactly the labels that are `null`. A failure goes back to the model once with the error text. If it fails again, the task is still saved with all three labels missing and the agent is told.
@@ -69,27 +69,11 @@ your sentence ─▶ intent model ─▶ { intents, task_ids, summary, message }
 
 ## Known failure cases
 
-### "Buy vegetables tonight at 8pm" fails with "Intent detection failed validation twice"
+### "Buy vegetables tonight at 8pm" failed with "Intent detection failed validation twice" (mitigated)
 
-What you see: the box shows `Intent detection failed validation twice (task_ids: an update needs the id of the task to change).` and no task is created. The task list already held `TSK-001`, a cousin's wedding at 9 pm.
+The full write-up, with the cause and the fixes, is the note [Output validation: a case study](../../notes/production/output-validation-case-study.md). In short: with `TSK-001` (a wedding at 9 pm) in the list, the intent model answered `update` with no task id, the validator rejected it, the retry said only "fix it", the model repeated itself, and the step threw an error.
 
-What happened (inferred from the error text, not from the model's raw reply, which is not stored for failed actions):
+Mitigated by: a retry message that names the valid options (an update needs an existing id, otherwise it is a create), a prompt rule and example for exactly this case, a fallback to `unclear` ("try rephrasing") instead of an error, and rejected calls saved with their reason and shown in Logs.
 
-1. The intent model (`gpt-5-nano`, minimal reasoning) answered `intents: ["update"]` with an empty `task_ids`. The likely trigger is the time phrase "tonight at 8pm" sitting next to an existing task that also had an evening time, so the request read as "change a time" instead of "add a task".
-2. The validator rejected it: an update must name a task id.
-3. The retry only said "Fix it and reply again". The model could fix the reply by inventing an id or by changing the intent to `create`, and it repeated the same answer.
-4. After the second failure the step throws. It fails closed on purpose (nothing is changed without a classification), but the user gets an internal error message and no recovery.
+Status: the fallback and the retry were checked against a fake model server. Not yet re-run with the real `gpt-5-nano`, so the sentence above may still be misclassified; if it is, you now get a rephrase prompt and the reason in Logs. A stronger `INTENT_MODEL` is the next thing to try.
 
-Why it is a design gap, not only a bad model reply:
-
-- The validator catches the mistake but the retry does not tell the model what the valid options are.
-- The same small model is asked to correct itself, so it tends to repeat the first answer.
-- A failed intent action is not saved, so Logs and the database show nothing to debug from. The cost of the two failed calls is also not shown.
-
-Possible fixes, not applied yet:
-
-- Make the retry message name the options: "an update needs an id from the list; if no listed task is being changed, this is a create".
-- Add an example to the intent prompt of a new task whose time or date resembles an existing one.
-- On a second failure, fall back to `unclear` with a message asking the user to rephrase, instead of an error.
-- Save failed actions (with the raw model replies) so Logs can show them.
-- Try a stronger `INTENT_MODEL` and compare.

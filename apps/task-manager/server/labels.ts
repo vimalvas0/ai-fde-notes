@@ -3,7 +3,7 @@
 // and one more try. Labels the model cannot find are null and listed in missing_labels.
 
 import { z } from "zod";
-import { chat, MODELS, type ActionContext } from "./llm.ts";
+import { chat, flagLastCall, MODELS, type ActionContext } from "./llm.ts";
 
 export const LABELS = ["time", "date", "location"] as const;
 export type LabelName = (typeof LABELS)[number];
@@ -97,6 +97,7 @@ export async function extractLabels(ctx: ActionContext, description: string, now
       raw = JSON.parse(reply.content ?? "");
     } catch {
       problem = "reply was not valid JSON";
+      flagLastCall(ctx, problem);
       messages.push({ role: "user", content: `${problem}. Reply again with the JSON object only.` });
       continue;
     }
@@ -104,6 +105,7 @@ export async function extractLabels(ctx: ActionContext, description: string, now
     if (parsed.success) return { labels: parsed.data };
 
     problem = parsed.error.issues.map((issue) => `${issue.path.join(".") || "reply"}: ${issue.message}`).join("; ");
+    flagLastCall(ctx, problem);
     messages.push({ role: "user", content: `That failed validation: ${problem}. Fix it and reply again.` });
   }
   return { labels: NONE_FOUND, error: `Label extraction failed validation twice (${problem}).` };

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import type { Action, Task } from "../server/db.ts";
 
 type LabelName = "time" | "date" | "location";
@@ -115,13 +115,16 @@ function LogsModal({ action, onClose }: { action: Action | null; onClose: () => 
             </thead>
             <tbody>
               {action.calls.map((call, index) => (
-                <tr key={index}>
-                  <td>{call.name}</td>
-                  <td>{call.model}</td>
-                  <td className="num">{call.inputTokens}</td>
-                  <td className="num">{call.outputTokens}</td>
-                  <td className="num">{call.priceKnown ? showMoney(call.costUsd) : "n/a"}</td>
-                </tr>
+                <Fragment key={index}>
+                  <tr className={call.note ? "flagged" : undefined}>
+                    <td>{call.name}</td>
+                    <td>{call.model}</td>
+                    <td className="num">{call.inputTokens}</td>
+                    <td className="num">{call.outputTokens}</td>
+                    <td className="num">{call.priceKnown ? showMoney(call.costUsd) : "n/a"}</td>
+                  </tr>
+                  {call.note && <tr className="note"><td colSpan={5}>{call.note}</td></tr>}
+                </Fragment>
               ))}
             </tbody>
           </table>
