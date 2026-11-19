@@ -4,7 +4,7 @@ A task list you change only by typing one sentence into a box. A model reads the
 
 Diagram: [architecture](../../diagrams/agents/task-manager-architecture.excalidraw), the six stages with one line each (open it in Excalidraw).
 
-![Task manager stages: input, intent, identify task, agent, labels, save and reply](../../diagrams/agents/task-manager-architecture.svg)
+![Task manager stages: input, intent, identify task, agent, labels, save and reply, with the model and JSON each LLM stage returns](../../diagrams/agents/task-manager-architecture.png)
 
 Related note: [Function calls and tool-call errors](../../notes/agents/tool-call-errors.md). Delete-by-description can match zero or several tasks, and those come back to the model as tool errors it has to handle.
 
