@@ -33,6 +33,7 @@ your sentence ─▶ agent model ─▶ create_task / update_task / delete_task
                           SQLite: tasks + task_labels
 ```
 
+- **Structured output**: every model output is JSON. Tool arguments follow strict function schemas, the label model and the agent's final answer (`{status, reply}`) follow strict JSON schemas, and each is validated with zod, with one retry on failure.
 - **Tools**: `create_task(description)`, `update_task(task_id, description)`, `delete_task(task_id | description)`. The agent sees today's date and the current task list (ids and text), so "move the dentist one to Friday" resolves to an id. Update replaces the whole description, so the agent writes the complete new text.
 - **Labels**: the small model returns JSON in a fixed shape: `time` (`HH:MM`), `date` (`YYYY-MM-DD`), `location`, and `missing_labels`. A label it cannot find is `null` and listed in `missing_labels`. Each task in the list shows found labels in pastel colours and missing ones as dashed chips.
 - **Validation**: the reply is checked with zod: time format, a real calendar date, a non-empty location, and `missing_labels` must be exactly the labels that are `null`. A failure goes back to the model once with the error text. If it fails again, the task is still saved with all three labels missing and the agent is told.
