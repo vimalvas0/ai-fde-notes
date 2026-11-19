@@ -9,6 +9,7 @@ import {
   createTask, deleteTask, findByDescription, getTask, listTasks, parseTaskId, saveAction, updateTask,
   type Action, type Change, type Task,
 } from "./db.ts";
+import { detectIntent, type Intent } from "./intent.ts";
 import { extractLabels } from "./labels.ts";
 import { observe } from "./langfuse.ts";
 import { chat, MODELS, type ActionContext } from "./llm.ts";
@@ -26,7 +27,7 @@ Tools:
 - delete_task(task_id, description): remove a task. Give task_id when you know it, otherwise the description text. Leave the other one null.
 
 How to work:
-- The message holds the current date and time, the current task list (newest change first, each as "TSK-001: description"), and the user's request.
+- The message holds the current date and time, the current task list (newest change first, each as "TSK-001: description [labels]"), an <intent> block from an earlier step that already worked out what the user wants and which tasks it points at, and the user's request. Follow the intent. You are only given the tools that intent allows.
 - Descriptions are written in the user's own words and keep any time, date or place they mentioned ("Dentist at Smile Clinic tomorrow 4:30pm"). Keep them short and in plain language. Do not add details the user did not give.
 - Do not extract times, dates or places yourself and do not pass them as separate arguments. Another model labels them from the description after you call the tool.
 - update_task replaces the whole description, so write the complete new text. If the user changes only part ("move TSK-002 to Friday"), start from the existing description and change only that part.
@@ -64,7 +65,9 @@ const RESPONSE_FORMAT = {
   },
 } as const;
 
-const TOOLS: ChatCompletionTool[] = [
+const TOOL_FOR: Partial<Record<Intent, string>> = { create: "create_task", update: "update_task", delete: "delete_task" };
+
+const ALL_TOOLS: ChatCompletionTool[] = [
   {
     type: "function",
     function: {
@@ -211,18 +214,30 @@ export async function handleInput(input: string, timeZone: string): Promise<Acti
   const reply = await observe("task-action", "span", input, async (update, id) => {
     traceId = id;
     const tasks = listTasks().slice(0, TASKS_IN_PROMPT);
+    // Middle step: a small model says what the user wants before anything is changed.
+    const intent = await detectIntent(run.ctx, input, tasks, run.now, describeTask);
+    update({ metadata: { intent } });
+    const allowed = new Set(intent.intents.map((name) => TOOL_FOR[name]));
+    const tools = ALL_TOOLS.filter((tool) => tool.type === "function" && allowed.has(tool.function.name));
+    if (tools.length === 0) {
+      // Unclear or unsupported: the intent step already wrote the reply, so the agent is not called.
+      const answer = intent.message ?? "I can only create, update and delete tasks.";
+      update({ output: answer });
+      return answer;
+    }
+
     const messages: ChatCompletionMessageParam[] = [
       { role: "system", content: SYSTEM_PROMPT },
       {
         role: "user",
-        content: `Current date and time: ${run.now}\n\n<tasks>\n${tasks.map(describeTask).join("\n") || "(no tasks yet)"}\n</tasks>\n\n<request>\n${input}\n</request>`,
+        content: `Current date and time: ${run.now}\n\n<tasks>\n${tasks.map(describeTask).join("\n") || "(no tasks yet)"}\n</tasks>\n\n<intent>\n${JSON.stringify({ intents: intent.intents, task_ids: intent.task_ids, summary: intent.summary })}\n</intent>\n\n<request>\n${input}\n</request>`,
       },
     ];
 
     let answer = "";
     for (let round = 1; round <= MAX_ROUNDS; round++) {
       const message = await chat(run.ctx, `agent:round-${round}`, {
-        model: MODELS.agent, messages, tools: TOOLS, response_format: RESPONSE_FORMAT, effort: "low",
+        model: MODELS.agent, messages, tools, response_format: RESPONSE_FORMAT, effort: "low",
       });
       const calls = (message.tool_calls ?? []).filter((call) => call.type === "function");
       if (calls.length === 0) {
