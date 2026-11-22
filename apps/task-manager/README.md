@@ -6,7 +6,7 @@ Diagram: [architecture](../../diagrams/agents/task-manager-architecture.excalidr
 
 ![Task manager stages: input, intent, identify task, agent, labels, save and reply, with the model and JSON each LLM stage returns](../../diagrams/agents/task-manager-architecture.png)
 
-Related note: [Function calls and tool-call errors](../../notes/agents/tool-call-errors.md). Delete-by-description can match zero or several tasks, and those come back to the model as tool errors it has to handle.
+Related notes: [Evals with graders](../../notes/evals/graders.md) (the `evals/` folder below), and [Function calls and tool-call errors](../../notes/agents/tool-call-errors.md). Delete-by-description can match zero or several tasks, and those come back to the model as tool errors it has to handle.
 
 ## Run
 
@@ -55,6 +55,39 @@ your sentence ─▶ intent model ─▶ { intents, summary, message }
 - **Cost**: tokens come from each response and are priced from the table in `server/pricing.ts`. Logs shows the total and each call. Prices are typed in by hand, so check them against the provider's page.
 - **Database**: `data/tasks.db` (created on first run): `tasks`, `task_labels`, and `actions` (one row per input: the intent detected, every change it made with the labels fetched, cost and calls). The task list is ordered by last modified. A database from an earlier version gets the new `intent` and `summary` columns added on start.
 - **History**: open a task and switch to the History tab. It lists every action that touched that task, newest first: what you typed, the intent detected, and the labels fetched (found, or dashed when missing). It is read from `actions`, so a deleted task's history is kept too. Actions saved before this feature show "not recorded" for what they did not store.
+
+## Evals
+
+`evals/` checks the intent and label steps against 30 sentences with known right answers. It calls the real models, so it needs `OPENAI_API_KEY`.
+
+```bash
+npm run eval -- --label baseline
+```
+
+- `evals/dataset.jsonl`: the 30 cases, one JSON object per line: `input`, `tags` and `expect` (the intents, and for create cases the time, date and location). Edit it by hand; add every new failure you find.
+- `evals/graders.ts`: one function per check. Code graders for intents and labels, and one LLM judge (`JUDGE_MODEL`, default `gpt-5-mini`) for whether the label summary is a good title.
+- `evals/run.ts`: runs every case on a fixed clock (Wednesday 2026-11-18 10:00), prints PASS, FAIL or FLAKY per case with the reasons, a pass rate per grader and the cost, and saves the full run to `evals/runs/<time>-<label>.json`. Commit the runs you want to compare later.
+
+Options: `--only c04,c05`, `--tag update`, `--skip-tag in-prompt` (leave out the 10 cases that are also prompt examples), `--repeat 3`, `--no-judge`, `--label <name>`.
+
+### Same eval in promptfoo
+
+[promptfoo](https://www.promptfoo.dev) is installed as a dev dependency and runs the same 30 cases with the same code graders, so the two can be compared side by side:
+
+```bash
+npm run promptfoo
+npm run promptfoo:view
+```
+
+- `evals/promptfoo/promptfooconfig.yaml`: the config. The prompt is just `{{input}}`; the real prompts stay in `server/`.
+- `evals/promptfoo/provider.ts`: a custom provider that calls `detectIntent` and `extractLabels`, on the same fixed clock.
+- `evals/promptfoo/tests.ts`: turns each line of `dataset.jsonl` into a promptfoo test, so there is still only one dataset.
+- `evals/promptfoo/asserts.ts`: `javascript` assertions that call the functions in `graders.ts`.
+- The summary judge is promptfoo's built-in `llm-rubric` (run by `gpt-5-mini`) instead of `judgeSummary`.
+
+What promptfoo adds: a web viewer with every output and grader reason, a stored history of runs to compare, and the option to list several providers or models in one config to compare them in one run. Results are stored in `~/.promptfoo`, not in this repo. Run it with `--filter-pattern c04` to pick cases by description.
+
+The loop: run a baseline, read each failure and decide if the model, the grader or the expected answer is wrong, change one thing, run again with the same options, and compare the two saved files.
 
 ## What to look at
 

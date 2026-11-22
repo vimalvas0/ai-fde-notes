@@ -1,0 +1,21 @@
+# promptfoo version of the same eval: same 30 cases, same code graders, promptfoo's llm-rubric
+# as the judge, and promptfoo's web viewer for the results.
+#   npm run promptfoo            run it
+#   npm run promptfoo:view       open the results in the browser
+description: Task manager intent and label steps
+
+prompts:
+  - "{{input}}"
+
+providers:
+  - file://provider.ts
+
+tests: file://tests.ts
+
+defaultTest:
+  options:
+    # The model that runs llm-rubric. Same default as JUDGE_MODEL in npm run eval.
+    provider: openai:chat:gpt-5-mini
+
+evaluateOptions:
+  maxConcurrency: 5

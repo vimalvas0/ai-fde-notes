@@ -11,7 +11,10 @@
     "dev": "node --env-file-if-exists=.env server/index.ts",
     "build": "vite build",
     "start": "node --env-file-if-exists=.env server/index.ts --prod",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "eval": "node --env-file-if-exists=.env evals/run.ts",
+    "promptfoo": "promptfoo eval -c evals/promptfoo/promptfooconfig.yaml --env-file .env --no-cache",
+    "promptfoo:view": "promptfoo view"
   },
   "dependencies": {
     "@langfuse/otel": "^6.1.1",
@@ -29,6 +32,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "promptfoo": "^0.126.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8"
   }
