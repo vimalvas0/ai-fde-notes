@@ -14,7 +14,17 @@ export const MODELS = {
   label: process.env.LABEL_MODEL ?? "gpt-5-nano", // smaller model, one narrow job: extract labels
 };
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "missing", timeout: 60_000, maxRetries: 1 });
+const clientOptions = { timeout: 60_000, maxRetries: 1 };
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "missing", ...clientOptions });
+// Gemini speaks the OpenAI chat API on this base URL, so the same client class and the same calls work.
+const gemini = new OpenAI({
+  apiKey: process.env.GEMINI_API_KEY || "missing",
+  baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+  ...clientOptions,
+});
+
+/** A model named "gemini-..." goes to Gemini with GEMINI_API_KEY; everything else goes to OpenAI. */
+const clientFor = (model: string) => (model.startsWith("gemini") ? gemini : openai);
 
 /** Everything one input action collects as it runs. */
 export type ActionContext = { calls: CallRecord[] };
@@ -27,7 +37,7 @@ export async function chat(ctx: ActionContext, name: string, { effort, ...params
     update({ model: params.model });
     // gpt-5 models reason before answering; keep that short for these easy jobs.
     const reasoning = effort && params.model.startsWith("gpt-5") ? { reasoning_effort: effort } : {};
-    const completion = await openai.chat.completions.create({ ...params, ...reasoning } as ChatCompletionCreateParamsNonStreaming);
+    const completion = await clientFor(params.model).chat.completions.create({ ...params, ...reasoning } as ChatCompletionCreateParamsNonStreaming);
     const message = completion.choices[0]?.message;
     if (!message) throw new Error("empty reply from model");
 

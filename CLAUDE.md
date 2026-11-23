@@ -17,5 +17,6 @@ Topic folders in use or planned: `fundamentals`, `prompting`, `rag`, `agents`, `
 - When adding a note, app or diagram, add its row to the matching table in `README.md` and cross-link note ↔ app ↔ diagram.
 - Apps stay small: one idea each, minimal dependencies, runnable with a single command stated in the app's README. Python apps use `uv`; Node apps use `npm` and keep their own `.env.example`.
 - Apps read keys from `.env`; never hardcode or commit keys. New keys get a line in `.env.example`.
+- Never run anything that calls a model or uses an API key (apps, evals, scripts, curl): the user does all key-using testing. Build, typecheck and static checks are fine; for anything that needs a key, say what to run and let the user run it.
 - Notes explain the mechanism in plain words first, then show a concrete example. Keep the "Revise" questions section filled in.
 - `.excalidraw` files are JSON and can be written directly; an `.svg` export still has to be produced from Excalidraw itself, so say so when one is missing.

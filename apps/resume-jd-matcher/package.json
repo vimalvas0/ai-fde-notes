@@ -11,7 +11,8 @@
     "dev": "node --env-file-if-exists=.env server/index.ts",
     "build": "vite build",
     "start": "node --env-file-if-exists=.env server/index.ts --prod",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "eval": "node --env-file-if-exists=.env evals/run.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.10.0",
