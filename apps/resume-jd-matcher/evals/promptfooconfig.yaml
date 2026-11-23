@@ -1,0 +1,35 @@
+# The recruitment assistant eval: 30 cases in dataset.jsonl, code graders in asserts.ts, promptfoo's
+# llm-rubric as the judge. The same pipeline is listed twice, with guardrails off and on, so one run
+# shows the baseline and the guardrails side by side.
+#   npm run eval            run it (add `-- --repeat 3` to run each case three times)
+#   npm run eval:view       open the results in the browser
+description: Resume matcher, baseline vs guardrails
+
+# Unused by the provider (the case's resume, jd and instruction arrive as vars), but promptfoo needs one.
+prompts:
+  - "{{instruction}}"
+
+providers:
+  - id: file://provider.ts
+    label: baseline (guardrails off)
+    config:
+      guardrails: false
+  - id: file://provider.ts
+    label: guardrails on
+    config:
+      guardrails: true
+
+tests: file://tests.ts
+
+defaultTest:
+  options:
+    # The model that runs llm-rubric, the judge. Gemini through its OpenAI-compatible endpoint, using GEMINI_API_KEY.
+    # To judge with OpenAI instead, use `provider: openai:chat:gpt-5-mini` and drop the config block.
+    provider:
+      id: openai:chat:gemini-2.5-flash
+      config:
+        apiBaseUrl: https://generativelanguage.googleapis.com/v1beta/openai
+        apiKeyEnvar: GEMINI_API_KEY
+
+evaluateOptions:
+  maxConcurrency: 4

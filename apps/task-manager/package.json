@@ -12,9 +12,8 @@
     "build": "vite build",
     "start": "node --env-file-if-exists=.env server/index.ts --prod",
     "typecheck": "tsc --noEmit",
-    "eval": "node --env-file-if-exists=.env evals/run.ts",
-    "promptfoo": "promptfoo eval -c evals/promptfoo/promptfooconfig.yaml --env-file .env --no-cache",
-    "promptfoo:view": "promptfoo view"
+    "eval": "promptfoo eval -c evals/promptfooconfig.yaml --env-file .env --no-cache",
+    "eval:view": "promptfoo view"
   },
   "dependencies": {
     "@langfuse/otel": "^6.1.1",

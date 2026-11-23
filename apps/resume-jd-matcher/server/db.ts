@@ -20,7 +20,7 @@ db.exec(`
 
 export type Step = {
   step: string;
-  provider: "openai" | "anthropic";
+  provider: "openai" | "anthropic" | "gemini";
   model: string;
   ms: number;
   fellBack: boolean; // true when OpenAI failed and Anthropic answered

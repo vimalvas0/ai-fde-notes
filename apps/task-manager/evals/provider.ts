@@ -1,12 +1,12 @@
 // promptfoo custom provider: runs the app's real intent step, then (for create cases) the label
 // step, on the user's sentence. promptfoo hands us the rendered prompt, which is just {{input}}.
-// The output is the same object our own runner grades: { intent, labels? }.
+// The output is the object the assertions in asserts.ts grade: { intent, labels? }.
 
-import { detectIntent } from "../../server/intent.ts";
-import { extractLabels } from "../../server/labels.ts";
-import { MODELS, type ActionContext } from "../../server/llm.ts";
+import { detectIntent } from "../server/intent.ts";
+import { extractLabels } from "../server/labels.ts";
+import { MODELS, type ActionContext } from "../server/llm.ts";
 
-// Same fixed clock as evals/run.ts, so expected dates stay right.
+// Fixed clock, so "tomorrow" always means the same day and expected dates never go stale.
 export const NOW = "Wednesday 2026-11-18 10:00 (Asia/Kolkata)";
 
 export default class TaskManagerProvider {

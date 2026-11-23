@@ -1,0 +1,26 @@
+# The task manager eval: 30 cases in dataset.jsonl, code graders in asserts.ts, promptfoo's llm-rubric
+# as the judge, and promptfoo's web viewer for the results.
+#   npm run eval            run it
+#   npm run eval:view       open the results in the browser
+description: Task manager intent and label steps
+
+prompts:
+  - "{{input}}"
+
+providers:
+  - file://provider.ts
+
+tests: file://tests.ts
+
+defaultTest:
+  options:
+    # The model that runs llm-rubric, the judge for label summaries. Gemini through its OpenAI-compatible endpoint, using GEMINI_API_KEY.
+    # To judge with OpenAI instead, use `provider: openai:chat:gpt-5-mini` and drop the config block.
+    provider:
+      id: openai:chat:gemini-2.5-flash
+      config:
+        apiBaseUrl: https://generativelanguage.googleapis.com/v1beta/openai
+        apiKeyEnvar: GEMINI_API_KEY
+
+evaluateOptions:
+  maxConcurrency: 5

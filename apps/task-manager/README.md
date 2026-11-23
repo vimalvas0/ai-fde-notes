@@ -59,34 +59,21 @@ your sentence ─▶ intent model ─▶ { intents, summary, message }
 
 ## Evals
 
-`evals/` checks the intent and label steps against 30 sentences with known right answers. It calls the real models, so it needs `OPENAI_API_KEY`.
+`evals/` checks the intent and label steps against 30 sentences with known right answers, using [promptfoo](https://www.promptfoo.dev) (a dev dependency). It calls the real models, so it needs `OPENAI_API_KEY`.
 
 ```bash
-npm run eval -- --label baseline
+npm run eval
+npm run eval:view
 ```
 
 - `evals/dataset.jsonl`: the 30 cases, one JSON object per line: `input`, `tags` and `expect` (the intents, and for create cases the time, date and location). Edit it by hand; add every new failure you find.
-- `evals/graders.ts`: one function per check. Code graders for intents and labels, and one LLM judge (`JUDGE_MODEL`, default `gpt-5-mini`) for whether the label summary is a good title.
-- `evals/run.ts`: runs every case on a fixed clock (Wednesday 2026-11-18 10:00), prints PASS, FAIL or FLAKY per case with the reasons, a pass rate per grader and the cost, and saves the full run to `evals/runs/<time>-<label>.json`. Commit the runs you want to compare later.
+- `evals/promptfooconfig.yaml`: the config. The prompt is just `{{input}}`; the real prompts stay in `server/`. The judge model is set here.
+- `evals/provider.ts`: a custom provider that calls the real `detectIntent` and `extractLabels`, on a fixed clock (Wednesday 2026-11-18 10:00) so "tomorrow" always means the same day.
+- `evals/tests.ts`: turns each line of `dataset.jsonl` into a promptfoo test.
+- `evals/asserts.ts`: the code graders, as promptfoo `javascript` assertions: intents, time, date, location and summary shape.
+- The summary judge is promptfoo's built-in `llm-rubric`, for whether the label summary is a good title.
 
-Options: `--only c04,c05`, `--tag update`, `--skip-tag in-prompt` (leave out the 10 cases that are also prompt examples), `--repeat 3`, `--no-judge`, `--label <name>`.
-
-### Same eval in promptfoo
-
-[promptfoo](https://www.promptfoo.dev) is installed as a dev dependency and runs the same 30 cases with the same code graders, so the two can be compared side by side:
-
-```bash
-npm run promptfoo
-npm run promptfoo:view
-```
-
-- `evals/promptfoo/promptfooconfig.yaml`: the config. The prompt is just `{{input}}`; the real prompts stay in `server/`.
-- `evals/promptfoo/provider.ts`: a custom provider that calls `detectIntent` and `extractLabels`, on the same fixed clock.
-- `evals/promptfoo/tests.ts`: turns each line of `dataset.jsonl` into a promptfoo test, so there is still only one dataset.
-- `evals/promptfoo/asserts.ts`: `javascript` assertions that call the functions in `graders.ts`.
-- The summary judge is promptfoo's built-in `llm-rubric` (run by `gpt-5-mini`) instead of `judgeSummary`.
-
-What promptfoo adds: a web viewer with every output and grader reason, a stored history of runs to compare, and the option to list several providers or models in one config to compare them in one run. Results are stored in `~/.promptfoo`, not in this repo. Run it with `--filter-pattern c04` to pick cases by description.
+`npm run eval:view` opens a web viewer with every output and grader reason. promptfoo stores run history in `~/.promptfoo`, not in this repo; add `--output evals/runs/<name>.json` to also save a file you can commit. Pass extra options after `--`: `--filter-pattern "^c04"` picks cases by description, `--repeat 3` runs each case three times (models are not deterministic). To compare models in one run, list several providers in the config.
 
 The loop: run a baseline, read each failure and decide if the model, the grader or the expected answer is wrong, change one thing, run again with the same options, and compare the two saved files.
 

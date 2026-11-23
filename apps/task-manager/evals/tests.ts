@@ -1,14 +1,15 @@
-// promptfoo test generator: turns each line of ../dataset.jsonl into a promptfoo test,
-// so the 30 cases live in one file that both runners read.
+// promptfoo test generator: turns each line of dataset.jsonl into a promptfoo test.
+// The dataset stays one JSON object per line, so it is still easy to edit by hand and diff.
 
 import { readFileSync } from "node:fs";
-import type { Case } from "../graders.ts";
+import type { Expect } from "./asserts.ts";
+
+type Case = { id: string; tags: string[]; input: string; expect: Expect };
 
 const js = (fn: string, metric: string) => ({ type: "javascript", value: `file://asserts.ts:${fn}`, metric });
 
 export default function tests() {
-  const file = new URL("../dataset.jsonl", import.meta.url);
-  return readFileSync(file, "utf8")
+  return readFileSync(new URL("./dataset.jsonl", import.meta.url), "utf8")
     .split("\n")
     .filter((line) => line.trim())
     .map((line) => {
@@ -20,7 +21,7 @@ export default function tests() {
         if ("date" in want) assert.push(js("labelDate", "label_date"));
         if ("location" in want) assert.push(js("labelLocation", "label_location"));
         assert.push(js("summaryShape", "summary_shape"), {
-          // promptfoo's own LLM judge, instead of judgeSummary in ../graders.ts.
+          // LLM judge: for what code cannot check, whether the summary is a good title.
           type: "llm-rubric",
           metric: "summary_judge",
           transform: "output.labels.summary",

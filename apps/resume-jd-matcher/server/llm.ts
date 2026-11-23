@@ -1,5 +1,5 @@
-// One function to call a model: OpenAI first, Anthropic if OpenAI fails.
-// Each attempt is its own Langfuse generation, so a failed OpenAI call and the
+// One function to call a model: providers are tried in order (default OpenAI, then Anthropic;
+// set LLM_PROVIDERS to change it, e.g. "gemini" to use only Gemini). Each attempt is its own Langfuse generation, so a failed OpenAI call and the
 // Anthropic call that replaced it both show up in the trace.
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -18,10 +18,20 @@ const MODELS = {
     fast: process.env.ANTHROPIC_FAST_MODEL ?? "claude-haiku-5-5",
     strong: process.env.ANTHROPIC_STRONG_MODEL ?? "claude-sonnet-5-5",
   },
+  gemini: {
+    fast: process.env.GEMINI_FAST_MODEL ?? "gemini-2.5-flash-lite",
+    strong: process.env.GEMINI_STRONG_MODEL ?? "gemini-2.5-flash",
+  },
 };
 
 const clientOptions = { timeout: 60_000, maxRetries: 1 };
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "missing", ...clientOptions });
+// Gemini speaks the OpenAI chat API on this base URL, so it reuses the OpenAI client class and call.
+const gemini = new OpenAI({
+  apiKey: process.env.GEMINI_API_KEY || "missing",
+  baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+  ...clientOptions,
+});
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_KEY || "missing",
   ...clientOptions,
@@ -32,6 +42,20 @@ type Reply = { text: string; usage: Usage };
 
 async function callOpenAI(model: string, system: string, user: string): Promise<Reply> {
   const completion = await openai.chat.completions.create({
+    model,
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+  });
+  return {
+    text: completion.choices[0]?.message.content ?? "",
+    usage: { input: completion.usage?.prompt_tokens ?? 0, output: completion.usage?.completion_tokens ?? 0 },
+  };
+}
+
+async function callGemini(model: string, system: string, user: string): Promise<Reply> {
+  const completion = await gemini.chat.completions.create({
     model,
     messages: [
       { role: "system", content: system },
@@ -63,10 +87,16 @@ export async function generate(
   system: string,
   user: string,
 ): Promise<{ text: string; step: Step }> {
-  const attempts = [
-    { provider: "openai", call: callOpenAI },
-    { provider: "anthropic", call: callAnthropic },
-  ] as const;
+  const available = {
+    openai: { provider: "openai", call: callOpenAI },
+    anthropic: { provider: "anthropic", call: callAnthropic },
+    gemini: { provider: "gemini", call: callGemini },
+  } as const;
+  const order = (process.env.LLM_PROVIDERS ?? "openai,anthropic")
+    .split(",")
+    .map((name) => name.trim())
+    .filter((name): name is keyof typeof available => name in available);
+  const attempts = order.map((name) => available[name]);
   const errors: string[] = [];
 
   for (const [index, { provider, call }] of attempts.entries()) {

@@ -45,7 +45,7 @@ One line of [`dataset.jsonl`](../../apps/task-manager/evals/dataset.jsonl), a ca
 
 The runner uses a fixed clock (`Wednesday 2026-11-18 10:00`), so "tonight" always means `2026-11-18` and the expected dates never go out of date.
 
-The graders in [`graders.ts`](../../apps/task-manager/evals/graders.ts), each checking one thing:
+The graders in [`asserts.ts`](../../apps/task-manager/evals/asserts.ts), each checking one thing:
 
 | Grader | Kind | Checks |
 | --- | --- | --- |
@@ -77,11 +77,11 @@ Saved evals/runs/2026-11-22-16-10-fake.json
 
 ### The same thing in promptfoo
 
-promptfoo is a tool that provides a ready-made runner, report and web viewer. You still write the dataset and the graders yourself; promptfoo calls them. In the task manager it reads the same `dataset.jsonl` through a small test generator, calls the real steps through a custom provider, and uses the same grader functions as `javascript` assertions. Its built-in `llm-rubric` replaces the hand-written judge. Writing the runner by hand first shows you what tools like this do; using one afterwards saves you from maintaining the report and the run history.
+promptfoo is a tool that provides a ready-made runner, report and web viewer. You still write the dataset and the graders yourself; promptfoo calls them. In the task manager it reads `dataset.jsonl` through a small test generator, calls the real steps through a custom provider, and runs the code graders as `javascript` assertions. Its built-in `llm-rubric` is the judge. The app first had a hand-written runner, which showed what tools like this do; it was then replaced by promptfoo, which saves you from maintaining the report and the run history.
 
 ## Gotchas
 
-- **Prompt examples that copy dataset cases.** Ten cases (tagged `in-prompt`) are word for word examples in the intent or label prompt, for example `c04` and `x02`, so they test whether the model can copy, not whether it understands. Read the score without them too (`npm run eval -- --skip-tag in-prompt`), and keep cases that never go into a prompt (a held-out set). If you fix a failure by pasting it in as an example, write a new case worded differently to check the fix carries over.
+- **Prompt examples that copy dataset cases.** Ten cases (tagged `in-prompt`) are word for word examples in the intent or label prompt, for example `c04` and `x02`, so they test whether the model can copy, not whether it understands. Read the score without them too (filter the `in-prompt` cases out with `--filter-pattern`, or tag-based filtering in promptfoo), and keep cases that never go into a prompt (a held-out set). If you fix a failure by pasting it in as an example, write a new case worded differently to check the fix carries over.
 - **Changing two things at once.** If you change the prompt and the model together and the score moves, you can't tell which one moved it.
 - **Trusting the judge blindly.** Hand-label 10 to 15 outputs yourself, run the judge on them, and count how often you agree. Below roughly 90%, fix the rubric before you trust its numbers.
 - **One run per case.** A change from 27 to 28 out of 30 is often noise. Use `--repeat` before believing a small gain.
@@ -104,7 +104,7 @@ Questions to answer from memory when coming back to this note.
 
 ## See also
 
-- App: [Task manager](../../apps/task-manager/) (`npm run eval`, or `npm run promptfoo`)
+- App: [Task manager](../../apps/task-manager/) (`npm run eval`, which runs promptfoo)
 - Note: [Output validation: a case study](../production/output-validation-case-study.md), the failure `c04` comes from
 - Diagram: none yet
 - Sources: Anthropic, "Define success criteria and build evaluations" (docs.anthropic.com); Hamel Husain, "Your AI product needs evals" (hamel.dev)
