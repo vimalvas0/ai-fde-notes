@@ -22,7 +22,7 @@ Then open http://localhost:3000. For a built page instead of the Vite dev server
 | Variable | Needed | What it is |
 | --- | --- | --- |
 | `OPENAI_API_KEY` | Yes | Used for every model whose name does not start with `gemini` |
-| `GEMINI_API_KEY` | Only for Gemini models | Used for any model whose name starts with `gemini` (for example `INTENT_MODEL=gemini-2.5-flash`), through Gemini's OpenAI-compatible endpoint |
+| `GEMINI_API_KEY` | Only for Gemini models | Used for any model whose name starts with `gemini` (for example `INTENT_MODEL=gemini-3.5-flash`), through Gemini's OpenAI-compatible endpoint |
 | `INTENT_MODEL`, `IDENTIFY_MODEL`, `AGENT_MODEL`, `LABEL_MODEL` | No | Defaults `gpt-5-nano`, `gpt-5-nano`, `gpt-5-mini` and `gpt-5-nano`. Each step can use a different provider |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` | No | Without them, nothing is traced |
 

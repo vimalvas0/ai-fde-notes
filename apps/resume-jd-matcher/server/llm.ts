@@ -19,8 +19,8 @@ const MODELS = {
     strong: process.env.ANTHROPIC_STRONG_MODEL ?? "claude-sonnet-5-5",
   },
   gemini: {
-    fast: process.env.GEMINI_FAST_MODEL ?? "gemini-2.5-flash-lite",
-    strong: process.env.GEMINI_STRONG_MODEL ?? "gemini-2.5-flash",
+    fast: process.env.GEMINI_FAST_MODEL ?? "gemini-3.5-flash-lite",
+    strong: process.env.GEMINI_STRONG_MODEL ?? "gemini-3.5-flash",
   },
 };
 

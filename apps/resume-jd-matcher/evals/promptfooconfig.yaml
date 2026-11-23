@@ -26,7 +26,7 @@ defaultTest:
     # The model that runs llm-rubric, the judge. Gemini through its OpenAI-compatible endpoint, using GEMINI_API_KEY.
     # To judge with OpenAI instead, use `provider: openai:chat:gpt-5-mini` and drop the config block.
     provider:
-      id: openai:chat:gemini-2.5-flash
+      id: openai:chat:gemini-3.5-flash
       config:
         apiBaseUrl: https://generativelanguage.googleapis.com/v1beta/openai
         apiKeyEnvar: GEMINI_API_KEY
