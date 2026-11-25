@@ -24,6 +24,12 @@ Notes, small apps and diagrams for learning and revising how LLMs work and how t
 | --- | --- |
 | [Function calls and tool-call errors](notes/agents/tool-call-errors.md) | How a function call works, the kinds of tool errors (5xx, 4xx, not found, empty, policy block), wrong arguments from the model, and who should handle each |
 
+### RAG
+
+| Note | What it covers |
+| --- | --- |
+| [Chunking strategies for RAG](notes/rag/chunking-strategies.md) | Recursive (size + overlap) versus heading-aware chunking, the size and overlap trade-offs, and the metadata to keep, compared on a fixed question set |
+
 ### Evals
 
 | Note | What it covers |
@@ -48,6 +54,7 @@ Notes, small apps and diagrams for learning and revising how LLMs work and how t
 | App | What it shows |
 | --- | --- |
 | [LiteLLM gateway](apps/README.md) | One local address that routes requests to OpenAI or Anthropic models by name, run with Docker Compose |
+| [Chunking comparison](apps/chunking-comparison/) | Chunks this repo's notes with recursive (size + overlap) and heading-aware strategies, embeds each with FastEmbed (`bge-small-en-v1.5`) into its own Qdrant collection, and scores 15 fixed questions by Hit@k and MRR; no API key (Node + TypeScript) |
 | [Model router](apps/model-router/) | A routing pipeline (a small model judges the prompt, then the answer with fallback) that sends each prompt to a cheap or strong model through the LiteLLM gateway, traced in Langfuse; also a function-call demo with failing tools (5xx, 4xx, empty result, policy block) you can try with your own prompts (TypeScript) |
 | [Prompting workshop](apps/prompting-workshop/) | Chat for up to 10 turns under a script system prompt loaded from a text file, behind a hard prompt that keeps replies short; the app classifies the script with types you define (zero-/one-/few-shot, or vulnerable/hardened for a prompt-injection workshop) (TypeScript) |
 | [Resume matcher](apps/resume-jd-matcher/) | Upload a resume and paste a job description; a three-model pipeline (extract, match, verdict) answers in at most 500 characters, OpenAI first with Anthropic as fallback, history in SQLite, traced in Langfuse (React + TypeScript) |

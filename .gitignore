@@ -39,3 +39,6 @@ desktop.ini
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# FastEmbed model cache (chunking-comparison)
+local_cache/
