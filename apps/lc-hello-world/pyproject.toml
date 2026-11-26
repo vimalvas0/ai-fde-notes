@@ -1,0 +1,24 @@
+[project]
+name = "lc-hello-world"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Vimal Vashisth", email = "vimalvas03@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "black>=26.10.1",
+    "isort>=9.0.2",
+    "langchain>=1.5.2",
+    "langchain-google-genai>=4.5.3",
+    "langchain-openai>=1.8.5",
+    "python-dotenv>=1.2.4",
+]
+
+[project.scripts]
+lc-hello-world = "lc_hello_world:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
